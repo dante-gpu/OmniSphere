@@ -6,7 +6,7 @@
 [![Wormhole](https://img.shields.io/badge/Integration-Wormhole-purple)](https://wormhole.com/)
 
 <div align="center">
- <img src="https://github.com/user-attachments/assets/e78437f9-2e4a-4487-8104-bf63904caf8d" />
+  <img src="https://github.com/user-attachments/assets/e78437f9-2e4a-4487-8104-bf63904caf8d" width="300" />
 </div>
 
 
