@@ -6,9 +6,9 @@
 [![Wormhole](https://img.shields.io/badge/Integration-Wormhole-purple)](https://wormhole.com/)
 
 <div align="center">
-![5 Nis 2025 17_50_59](https://github.com/user-attachments/assets/eb910566-5ccf-4831-901c-81d8a07b2a03)
-
+ <img src="https://github.com/user-attachments/assets/e78437f9-2e4a-4487-8104-bf63904caf8d" />
 </div>
+
 
 > **OmniSphere** is a revolutionary cross-chain liquidity protocol that enables atomic composition of liquidity across multiple blockchain universes, powered by Sui's high-performance ecosystem and Wormhole's interoperability infrastructure.
 
