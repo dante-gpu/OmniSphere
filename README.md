@@ -6,7 +6,7 @@
 [![Wormhole](https://img.shields.io/badge/Integration-Wormhole-purple)](https://wormhole.com/)
 
 <div align="center">
-  ![omnispherelogo](https://github.com/user-attachments/assets/06d13947-cab7-4eff-b134-8573e6c15b8f)
+![5 Nis 2025 17_50_59](https://github.com/user-attachments/assets/eb910566-5ccf-4831-901c-81d8a07b2a03)
 
 </div>
 
