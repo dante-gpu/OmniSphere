@@ -28,6 +28,7 @@ import { SolanaPlatform } from "@wormhole-foundation/sdk-solana";
 import { SuiPlatform } from "@wormhole-foundation/sdk-sui";
 import { bridgeTokenWithHelper } from '../lib/wormholeService';
 import { SolanaSignerAdapter, SuiSignerAdapter } from '../lib/wormholeSignerAdapters';
+import { PublicKey } from '@solana/web3.js'; // Solana adres doğrulaması için
 import { Button } from '../components/ui/Button'; // Assuming named export
 // import { Input } from '../components/ui/Input'; // Using standard input
 // import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/Select'; // Using standard select
@@ -89,13 +90,40 @@ const BridgePage = () => {
   const handleBridge = useCallback(async () => {
     setBridgeResult(null); // Clear previous result
 
+    // --- YENİ: Adres Doğrulama Başlangıcı ---
+    let isValidAddress = false;
+    if (toChain === 'Solana') {
+      try {
+        // PublicKey oluşturmaya çalış, hata verirse geçersizdir.
+        // isOnCurve, adresin geçerli bir ed25519 public key olup olmadığını kontrol eder.
+        const publicKey = new PublicKey(recipientAddress);
+        isValidAddress = PublicKey.isOnCurve(publicKey.toBytes());
+      } catch (error) {
+        isValidAddress = false; // PublicKey oluşturma hatası = geçersiz adres
+      }
+      if (!isValidAddress) {
+        toast.error("Invalid Solana recipient address.");
+        return;
+      }
+    } else if (toChain === 'Sui') {
+      // Basit regex: '0x' ile başlar ve 64 hex karakter içerir
+      const suiAddressRegex = /^0x[a-fA-F0-9]{64}$/;
+      isValidAddress = suiAddressRegex.test(recipientAddress);
+      if (!isValidAddress) {
+        toast.error("Invalid Sui recipient address. Must be a 66-character hex string starting with 0x.");
+        return;
+      }
+    }
+    // --- YENİ: Adres Doğrulama Sonu ---
+
+
     // Input Validation
     if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
       toast.error("Please enter a valid amount.");
       return;
     }
     if (!recipientAddress) {
-      toast.error("Please enter a recipient address.");
+      toast.error("Please enter a recipient address."); // Bu kontrol kalabilir.
       return;
     }
 
