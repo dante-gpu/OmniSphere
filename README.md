@@ -605,6 +605,15 @@ module omnisphere::types {
 }
 ```
 
+### 4.6 Deployment Information
+
+The Sui smart contracts for OmniSphere have been deployed to the **Sui Testnet**.
+
+- **Package ID:** `0xee971f83a4e21e2e1c129d4ea7478451a161fe7efd96e76c576a4df04bda6f4e`
+- **Network:** Sui Testnet
+
+You can explore the package and its modules using a Sui explorer with the Package ID above.
+
 ---
 
 ## ⚡ 5. Solana Programs
