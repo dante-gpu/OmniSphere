@@ -20,6 +20,8 @@ default = []
 anchor-lang = { version = "0.30.1", features = ["init-if-needed"] }
 anchor-spl = "0.30.1"
 wormhole-anchor-sdk = "0.30.1-alpha.3" # Use specific pre-release version suggested by error
-wormhole-vaas = "0.1.0" # Revert back to wormhole-vaas
+wormhole-vaas = "0.1.0" 
+wormhole = "0.1.0" # Use the serde helper for VAA
 hex = "0.4" # Often needed for working with addresses/hashes from Wormhole
-borsh = "0.10" # For payload deserialization (use version compatible with anchor/solana if needed)
+borsh = "0.10" # Keep for our custom payload deserialization
+serde = { version = "1.0", features = ["derive"] } # Add serde for Vaa struct if needed by wormhole-vaas-serde
