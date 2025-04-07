@@ -1,0 +1,11 @@
+[package]
+name = "omnisphere_sui"
+version = "0.0.1"
+# edition = "2024.beta" # Optional: Specify Move edition if needed
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/testnet" }
+# Add other dependencies like Wormhole integration packages later if needed
+
+[addresses]
+omnisphere_sui = "0x0" # Placeholder address, will be filled after deployment

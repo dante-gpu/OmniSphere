@@ -46,18 +46,76 @@ export function useSwap() {
   const { connected, signAndExecuteTransactionBlock, account } = suiWallet;
 
   const executeSwap = async (params: SwapParams) => {
-    if (!connected) {
-      throw new Error('Please connect your wallet first');
+    if (!connected || !account) {
+      toast.error('Please connect your Sui wallet first');
+      throw new Error('Sui Wallet not connected');
+    }
+    if (!signAndExecuteTransactionBlock) {
+       toast.error('Wallet does not support signing transactions.');
+       throw new Error('Wallet does not support signing transactions.');
     }
 
-    // Here you would implement the actual swap logic using the blockchain
-    // This is just a simulation
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Simulate success
-    toast.success('Swap executed successfully');
-    return { success: true };
+    const { fromToken, toToken, fromAmount, slippage } = params;
+    const toastId = toast.loading('Preparing swap transaction...');
+
+    try {
+      // 1. Parse amount using decimals
+      const amountBigInt = parseUnits(fromAmount, fromToken.decimals);
+
+      // 2. Get the specific coin object to use as input (CRITICAL: Needs real implementation)
+      const inputCoinObjectId = await getInputCoinObject(suiWallet, fromToken.type, amountBigInt);
+      if (!inputCoinObjectId) {
+        throw new Error(`Could not find a suitable coin object for ${fromToken.symbol}`);
+      }
+
+      // 3. Get the Pool Object ID (CRITICAL: Needs real implementation)
+      const poolObjectId = getPoolObjectIdForPair(fromToken.type, toToken.type);
+
+      // 4. Calculate minimum amount out (CRITICAL: Needs real implementation of calculateOutputAmount)
+      // For now, use a placeholder or very basic calculation.
+      // const expectedOutputAmount = await calculateOutputAmount(fromToken.symbol, toToken.symbol, fromAmount); // Needs update to use token objects
+      // const expectedOutputBigInt = parseUnits(expectedOutputAmount, toToken.decimals);
+      // const minAmountOutBigInt = expectedOutputBigInt * BigInt(10000 - Math.floor(slippage * 100)) / BigInt(10000);
+      const minAmountOutBigInt = BigInt(0); // Placeholder - MUST BE REPLACED
+      console.warn("Using placeholder minAmountOutBigInt = 0");
+
+
+      // 5. Create Transaction Block
+      const txb = new TransactionBlock();
+
+      // The target function signature is assumed based on common AMM patterns.
+      // Replace with the actual function signature from your Move contract.
+      // Example: package_id::module_name::function_name
+      txb.moveCall({
+        target: `${OMNI_PACKAGE_ID}::${LIQUIDITY_POOL_MODULE}::swap_exact_input`,
+        arguments: [
+          txb.object(poolObjectId), // The pool object
+          txb.object(inputCoinObjectId), // The input coin object ID
+          txb.pure(minAmountOutBigInt.toString()), // Minimum amount of output token expected
+        ],
+        typeArguments: [fromToken.type, toToken.type], // Pass token types as type arguments
+      });
+
+      // 6. Sign and execute the transaction
+      toast.loading('Please approve the transaction in your wallet...', { id: toastId });
+      const result = await signAndExecuteTransactionBlock({
+        transactionBlock: txb as any, // Cast to any to bypass TS error
+        // options: { showEffects: true } // Optional: to get more details
+      });
+
+      toast.success(`Swap successful! Digest: ${result.digest}`, { id: toastId, duration: 5000 });
+      console.log('Swap Result:', result);
+      return { success: true, txDigest: result.digest };
+
+    } catch (error: any) {
+      console.error("Swap execution failed:", error);
+      const errorMessage = error?.message || 'An unknown error occurred';
+      toast.error(`Swap failed: ${errorMessage}`, { id: toastId });
+      throw error; // Re-throw the error for the caller (SwapPage) to potentially handle
+    }
   };
+
+  // --- Other functions (calculateOutputAmount, getSwapRoute, getPriceImpact) still need real implementation ---
 
   const calculateOutputAmount = async (
     fromToken: string,
