@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import * as React from 'react'; // Changed React import
+import { useState, useMemo } from 'react'; // Separate hook imports
 import { Wallet, LogOut, ChevronDown, Copy, CheckCircle } from 'lucide-react';
-import { ConnectButton, useWallet as useSuiWallet } from '@suiet/wallet-kit'; // Renamed import
+import { ConnectButton, useWallet as useSuiWallet, type WalletContextState } from '@suiet/wallet-kit'; // Added explicit type import
 import '@suiet/wallet-kit/style.css';
 import { useWallet as useSolanaWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
