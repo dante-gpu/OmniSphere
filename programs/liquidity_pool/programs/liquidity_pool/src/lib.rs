@@ -17,7 +17,7 @@ use crate::state::*;
 use crate::errors::ErrorCode;
 
 // Declare the program ID - Using the placeholder from README.md
-declare_id!("LiQP5xRQqd3s8YTRuuBE3KxmzWF8x7LpxAqJ9Vr5FvT");
+declare_id!("GL6uWvwZAapbf54GQb7PwKxXrC6gnjyNcrBMeAvkh7mg");
 
 #[program]
 pub mod liquidity_pool_program { // Renamed module to avoid conflict with crate name

@@ -661,7 +661,7 @@ mod errors;
 use instructions::*;
 use state::*;
 
-declare_id!("LiQP5xRQqd3s8YTRuuBE3KxmzWF8x7LpxAqJ9Vr5FvT");
+declare_id!("GL6uWvwZAapbf54GQb7PwKxXrC6gnjyNcrBMeAvkh7mg");
 
 #[program]
 pub mod liquidity_pool {
