@@ -1,17 +1,49 @@
-import { useMutation } from 'react-query';
-import { useWallet } from '@suiet/wallet-kit';
+import { useWallet as useSuiWallet } from '@suiet/wallet-kit'; // Use renamed hook
+import { TransactionBlock } from '@mysten/sui.js/transactions';
+// Potentially need SuiClient and getFullnodeUrl for reading data later
+// import { SuiClient, getFullnodeUrl } from '@mysten/sui.js/client';
 import toast from 'react-hot-toast';
+import { parseUnits, formatUnits } from 'ethers'; // For amount conversion
+
+// TODO: Replace with actual deployed Package ID
+const OMNI_PACKAGE_ID = '0xOMNI_PACKAGE_ID_PLACEHOLDER';
+const LIQUIDITY_POOL_MODULE = 'liquidity_pool';
 
 interface SwapParams {
-  fromToken: string;
-  toToken: string;
-  fromAmount: string;
-  toAmount: string;
-  slippage: number;
+  fromToken: { symbol: string; decimals: number; type: string }; // Use object for more info
+  toToken: { symbol: string; decimals: number; type: string }; // Use object for more info
+  fromAmount: string; // User input amount
+  // toAmount: string; // Removed, calculate min_amount_out from slippage
+  slippage: number; // Percentage (e.g., 0.5 for 0.5%)
 }
 
+// TODO: Implement this helper function based on token pair
+// This might involve reading on-chain state or using a known mapping
+const getPoolObjectIdForPair = (tokenAType: string, tokenBType: string): string => {
+  console.warn("getPoolObjectIdForPair is not implemented. Using placeholder.");
+  // Example: return mapping[`${tokenAType}-${tokenBType}`] || '0xPOOL_OBJECT_ID_PLACEHOLDER';
+  return '0xPOOL_OBJECT_ID_PLACEHOLDER';
+}
+
+// TODO: Implement this helper function to get Coin objects from user's balance
+// This requires fetching user's coins and potentially splitting them
+const getInputCoinObject = async (
+  wallet: ReturnType<typeof useSuiWallet>,
+  tokenType: string,
+  amountBigInt: bigint
+): Promise<string | null> => {
+   console.warn("getInputCoinObject is not implemented. Returning null.");
+   // Logic to find a suitable coin object ID or split coins
+   // const coins = await wallet.client.getCoins({ owner: wallet.account.address, coinType: tokenType });
+   // Find or split coin...
+   return null; // Placeholder
+}
+
+
 export function useSwap() {
-  const { connected } = useWallet();
+  // Use Sui Wallet hook specifically
+  const suiWallet = useSuiWallet();
+  const { connected, signAndExecuteTransactionBlock, account } = suiWallet;
 
   const executeSwap = async (params: SwapParams) => {
     if (!connected) {

@@ -19,6 +19,15 @@ import { useSwap } from '../hooks/useSwap';
 import { useTokenBalance } from '../hooks/useTokenBalance';
 import { useTokenPrice } from '../hooks/useTokenPrice';
 
+// Define a more detailed token type
+interface TokenInfo {
+  symbol: string;
+  name: string;
+  icon: string;
+  decimals: number; // Added decimals
+  type: string; // Added Sui type identifier
+}
+
 const SwapPage = () => {
   const { connected: suiConnected } = useSuiWallet(); // Get Sui connection status
   const { connected: solanaConnected } = useSolanaWallet(); // Get Solana connection status
@@ -36,17 +45,21 @@ const SwapPage = () => {
   const [swapRoute, setSwapRoute] = useState<string[]>([]);
   const [priceImpact, setPriceImpact] = useState<number>(0);
 
-  // Token Selection
-  const [fromToken, setFromToken] = useState({
+  // Token Selection - Use the new TokenInfo type and add decimals/type
+  const [fromToken, setFromToken] = useState<TokenInfo>({
     symbol: 'SUI',
     name: 'Sui',
-    icon: 'https://cryptologos.cc/logos/sui-sui-logo.png'
+    icon: 'https://cryptologos.cc/logos/sui-sui-logo.png',
+    decimals: 9, // Standard SUI decimals
+    type: '0x2::sui::SUI' // Standard SUI type
   });
-  
-  const [toToken, setToToken] = useState({
+
+  const [toToken, setToToken] = useState<TokenInfo>({
     symbol: 'USDC',
     name: 'USD Coin',
-    icon: 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png'
+    icon: 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png',
+    decimals: 6, // Common USDC decimals (verify this)
+    type: '0xPLACEHOLDER::usdc::USDC' // Replace with actual USDC type on Sui Testnet/Mainnet
   });
 
   // Amount Inputs
@@ -61,27 +74,35 @@ const SwapPage = () => {
   const { price: fromPrice } = useTokenPrice(fromToken.symbol);
   const { price: toPrice } = useTokenPrice(toToken.symbol);
 
-  // Available tokens
-  const tokens = [
+  // Available tokens - Update with decimals and type
+  const tokens: TokenInfo[] = [
     {
       symbol: 'SUI',
       name: 'Sui',
-      icon: 'https://cryptologos.cc/logos/sui-sui-logo.png'
+      icon: 'https://cryptologos.cc/logos/sui-sui-logo.png',
+      decimals: 9,
+      type: '0x2::sui::SUI'
     },
     {
       symbol: 'USDC',
       name: 'USD Coin',
-      icon: 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png'
+      icon: 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png',
+      decimals: 6, // Verify
+      type: '0xPLACEHOLDER::usdc::USDC' // Replace
     },
     {
-      symbol: 'SOL',
-      name: 'Solana',
-      icon: 'https://cryptologos.cc/logos/solana-sol-logo.png'
+      symbol: 'SOL', // Assuming wrapped SOL
+      name: 'Solana (Wormhole)',
+      icon: 'https://cryptologos.cc/logos/solana-sol-logo.png',
+      decimals: 9, // Verify wrapped SOL decimals
+      type: '0xWORMHOLE_PLACEHOLDER::sol::SOL' // Replace with actual wrapped SOL type
     },
     {
-      symbol: 'USDT',
-      name: 'Tether',
-      icon: 'https://cryptologos.cc/logos/tether-usdt-logo.png'
+      symbol: 'USDT', // Assuming wrapped USDT
+      name: 'Tether (Wormhole)',
+      icon: 'https://cryptologos.cc/logos/tether-usdt-logo.png',
+      decimals: 6, // Verify wrapped USDT decimals
+      type: '0xWORMHOLE_PLACEHOLDER::usdt::USDT' // Replace with actual wrapped USDT type
     }
   ];
 
@@ -138,16 +159,17 @@ const SwapPage = () => {
 
   const handleSwap = async () => {
     if (!fromAmount || !toAmount) return;
-    
+
     try {
+      // Pass the full token objects to executeSwap
       await executeSwap({
-        fromToken: fromToken.symbol,
-        toToken: toToken.symbol,
+        fromToken: fromToken, // Pass the object
+        toToken: toToken,   // Pass the object
         fromAmount,
-        toAmount,
+        // toAmount is not needed directly, min_amount_out calculated from slippage
         slippage: parseFloat(slippage)
       });
-      
+
       // Reset form after successful swap
       setFromAmount('');
       setToAmount('');
