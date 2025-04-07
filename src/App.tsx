@@ -1,8 +1,14 @@
-import React from 'react';
+import React, { useMemo } from 'react'; // Added useMemo
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { WalletProvider } from '@suiet/wallet-kit';
+import '@suiet/wallet-kit/style.css'; // Added Suiet CSS
 import { Toaster } from 'react-hot-toast';
+import { ConnectionProvider, WalletProvider as SolanaWalletProvider } from '@solana/wallet-adapter-react';
+import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
+import { PhantomWalletAdapter, SolflareWalletAdapter } from '@solana/wallet-adapter-wallets';
+import { clusterApiUrl } from '@solana/web3.js';
+import '@solana/wallet-adapter-react-ui/styles.css'; // Added Solana UI CSS
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
 import HomePage from './pages/HomePage';
@@ -29,12 +35,27 @@ const queryClient = new QueryClient({
 });
 
 function App() {
+  // Solana Setup
+  const solanaNetwork = clusterApiUrl('devnet');
+  const solanaWallets = useMemo(
+    () => [
+      new PhantomWalletAdapter(),
+      new SolflareWalletAdapter(),
+      // Add other wallets here if needed
+    ],
+    [] // network dependency removed as clusterApiUrl is stable for 'devnet'
+  );
+
   return (
-    <WalletProvider>
-      <QueryClientProvider client={queryClient}>
-        <Router>
-          <div className="min-h-screen flex flex-col">
-            <Navbar />
+    <ConnectionProvider endpoint={solanaNetwork}>
+      <SolanaWalletProvider wallets={solanaWallets} autoConnect>
+        <WalletModalProvider>
+          {/* Sui Wallet Provider (already present) */}
+          <WalletProvider>
+            <QueryClientProvider client={queryClient}>
+              <Router>
+                <div className="min-h-screen flex flex-col">
+                  <Navbar />
             <main className="flex-grow">
               <Routes>
                 <Route path="/" element={<HomePage />} />
@@ -77,10 +98,13 @@ function App() {
               },
             }}
           />
-        </Router>
-      </QueryClientProvider>
-    </WalletProvider>
-  );
-}
+                </Router>
+              </QueryClientProvider>
+            </WalletProvider>
+          </WalletModalProvider>
+        </SolanaWalletProvider>
+      </ConnectionProvider>
+    );
+  }
 
 export default App;
