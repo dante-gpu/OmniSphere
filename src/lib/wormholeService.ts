@@ -11,7 +11,7 @@ import {
   NativeAddress,
   TokenTransfer, // Import the TokenTransfer helper
 } from "@wormhole-foundation/sdk";
-// No need for normalizeAmount import when using TokenTransfer helper
+import { normalizeAmount } from "@wormhole-foundation/sdk-base"; // Import normalizeAmount from sdk-base
 import { EvmPlatform } from "@wormhole-foundation/sdk-evm";
 import { SolanaPlatform } from "@wormhole-foundation/sdk-solana";
 import { SuiPlatform } from "@wormhole-foundation/sdk-sui";
@@ -62,29 +62,37 @@ export async function bridgeTokenWithHelper(
   sourceChain: SupportedChain,
   targetChain: SupportedChain,
   tokenSymbol: TokenSymbol,
-  amount: string, // Amount as a string (e.g., "10.5") - TokenTransfer handles normalization
+  amount: string, // Amount as a string (e.g., "10.5")
   sourceSigner: AdaptedSigner, // The adapted signer object
   recipientAddress: string // Recipient address as string
 ) {
   console.log(`Bridging ${amount} ${tokenSymbol} from ${sourceChain} to ${targetChain} using TokenTransfer helper`);
 
   const wh = await initializeWormholeContext();
+  const sourceChainContext = wh.getChain(sourceChain); // Get source chain context early
 
   const tokenAddress = TESTNET_TOKENS[sourceChain][tokenSymbol];
   if (!tokenAddress || tokenAddress.startsWith("0xPLACEHOLDER")) {
     throw new Error(`Token ${tokenSymbol} address not configured or invalid for ${sourceChain} on Testnet`);
   }
 
-  // Create TokenId and ChainAddress objects using Wormhole static methods
+  // Create TokenId first
   const sourceToken: TokenId = Wormhole.tokenId(sourceChain, tokenAddress);
+
+  // Get token decimals using the Wormhole instance and the address part of TokenId
+  const decimals = await wh.getDecimals(sourceChain, sourceToken.address);
+  // Normalize amount using the imported function
+  const normalizedAmountBigInt = normalizeAmount(amount, decimals); // Use imported normalizeAmount with fetched decimals
+
+  // Create ChainAddress objects using Wormhole static methods
   const senderChainAddr: ChainAddress = Wormhole.chainAddress(sourceChain, sourceSigner.address());
   const destinationChainAddr: ChainAddress = Wormhole.chainAddress(targetChain, recipientAddress);
 
   // Create a TokenTransfer object to track the state of the transfer
-  // Amount is passed directly, normalization is handled internally
+  // Pass the normalized amount as bigint
   const transfer = await wh.tokenTransfer(
     sourceToken,
-    amount,
+    normalizedAmountBigInt, // Pass the bigint amount
     senderChainAddr,
     destinationChainAddr,
     false, // Automatic delivery set to false (manual)
@@ -108,7 +116,8 @@ export async function bridgeTokenWithHelper(
 
   // Redeem on the destination chain
   console.log("Completing transfer...");
-  const destinationTxids = await transfer.completeTransfer(sourceSigner); // Use same signer for redeem? Check docs if dest signer needed
+  // Pass the adapted signer for the destination chain if needed, otherwise sourceSigner might work if it handles both
+  const destinationTxids = await transfer.completeTransfer(sourceSigner);
   console.log(`Completed transfer with destination txids: ${destinationTxids}`);
 
   return {
@@ -123,7 +132,7 @@ export async function bridgeTokenWithHelper(
 // Example usage (for testing purposes, call from UI later)
 /*
 // NOTE: The Signer objects passed MUST conform to the SDK's Signer interface.
-// This requires creating wrapper classes/functions around the wallet adapter objects.
+// This likely requires creating wrapper classes/functions around the wallet adapter objects.
 async function testBridge(suiSigner: AdaptedSigner, solanaSigner: AdaptedSigner) {
 
   // Example: Solana to Sui
@@ -172,12 +181,14 @@ async function testBridge(suiSigner: AdaptedSigner, solanaSigner: AdaptedSigner)
 //    in the exact way the Wormhole SDK Signer interface expects for each chain.
 //    Example structure:
 //    class SolanaSDKSignerWrapper implements Signer {
-//      constructor(private walletAdapter: SolanaWalletAdapter) {}
+//      // Define required properties like chain, address etc.
+//      // Implement sign or signAndSend methods by calling the underlying wallet adapter's methods
+//      constructor(private walletAdapter: any) {} // Use appropriate adapter type
 //      chain(): Chain { return "Solana"; }
 //      address(): string { return this.walletAdapter.publicKey?.toBase58() ?? ""; }
-//      async sign(txs: UnsignedTransaction[]): Promise<SignedTx[]> { /* ... implement signing logic ... */ }
+//      async sign(txs: any[]): Promise<any[]> { /* ... implement signing logic ... */ return []; } // Use any[] for now if UnsignedTransaction/SignedTx cause issues
 //      // OR
-//      async signAndSend(txs: UnsignedTransaction[]): Promise<TxHash[]> { /* ... implement signAndSend logic ... */ }
+//      // async signAndSend(txs: any[]): Promise<string[]> { /* ... implement signAndSend logic ... */ return []; } // Use any[]/string[] for now
 //    }
 // 3. Instantiate these wrappers: const suiSigner = new SuiSDKSignerWrapper(suiWalletAdapter);
 // 4. Call testBridge(suiSigner, solanaSigner) or bridgeTokenWithHelper directly with the wrapped signers.
