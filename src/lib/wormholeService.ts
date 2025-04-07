@@ -11,10 +11,10 @@ import {
   NativeAddress,
   TokenTransfer, // Import the TokenTransfer helper
 } from "@wormhole-foundation/sdk";
-import { normalizeAmount } from "@wormhole-foundation/sdk-base"; // Import normalizeAmount from sdk-base
 import { EvmPlatform } from "@wormhole-foundation/sdk-evm";
 import { SolanaPlatform } from "@wormhole-foundation/sdk-solana";
 import { SuiPlatform } from "@wormhole-foundation/sdk-sui";
+import { parseUnits } from "ethers"; // Import parseUnits from ethers
 
 // Define network and chains
 const NETWORK: Network = "Testnet";
@@ -81,8 +81,8 @@ export async function bridgeTokenWithHelper(
 
   // Get token decimals using the Wormhole instance and the address part of TokenId
   const decimals = await wh.getDecimals(sourceChain, sourceToken.address);
-  // Normalize amount using the imported function
-  const normalizedAmountBigInt = normalizeAmount(amount, decimals); // Use imported normalizeAmount with fetched decimals
+  // Normalize amount using ethers.parseUnits
+  const normalizedAmountBigInt = parseUnits(amount, decimals); // Use ethers.parseUnits
 
   // Create ChainAddress objects using Wormhole static methods
   const senderChainAddr: ChainAddress = Wormhole.chainAddress(sourceChain, sourceSigner.address());
@@ -128,68 +128,4 @@ export async function bridgeTokenWithHelper(
   };
 }
 
-
-// Example usage (for testing purposes, call from UI later)
-/*
-// NOTE: The Signer objects passed MUST conform to the SDK's Signer interface.
-// This likely requires creating wrapper classes/functions around the wallet adapter objects.
-async function testBridge(suiSigner: AdaptedSigner, solanaSigner: AdaptedSigner) {
-
-  // Example: Solana to Sui
-  if (solanaSigner && suiSigner) {
-     try {
-      const suiRecipient = suiSigner.address(); // Get address via method
-      const result = await bridgeTokenWithHelper(
-        SOLANA_CHAIN,
-        SUI_CHAIN,
-        "USDC", // Make sure this token exists and address is correct
-        "0.1", // Small amount for testing
-        solanaSigner, // Pass the adapted Solana signer
-        suiRecipient
-      );
-      console.log("Solana -> Sui Bridge Result:", result);
-    } catch (error) {
-      console.error("Solana -> Sui Bridge test failed:", error);
-    }
-  } else {
-     console.log("Need both adapted Solana and Sui signers for test.")
-  }
-
-   // Example: Sui to Solana
-   if (suiSigner && solanaSigner) {
-     try {
-      const solanaRecipient = solanaSigner.address(); // Get address via method
-      const result = await bridgeTokenWithHelper(
-        SUI_CHAIN,
-        SOLANA_CHAIN,
-        "USDC", // Make sure this token exists and address is correct for Sui
-        "0.1", // Small amount for testing
-        suiSigner, // Pass the adapted Sui signer
-        solanaRecipient
-      );
-      console.log("Sui -> Solana Bridge Result:", result);
-    } catch (error) {
-      console.error("Sui -> Solana Bridge test failed:", error);
-    }
-   }
-}
-
-// How to call from UI:
-// 1. Get the connected wallet adapter objects (e.g., from useSuiWallet() and useSolanaWallet())
-// 2. **Crucially:** Create wrapper objects/functions that take the wallet adapter object
-//    and expose the `chain`, `address()`, and signing methods (`signTransaction`, etc.)
-//    in the exact way the Wormhole SDK Signer interface expects for each chain.
-//    Example structure:
-//    class SolanaSDKSignerWrapper implements Signer {
-//      // Define required properties like chain, address etc.
-//      // Implement sign or signAndSend methods by calling the underlying wallet adapter's methods
-//      constructor(private walletAdapter: any) {} // Use appropriate adapter type
-//      chain(): Chain { return "Solana"; }
-//      address(): string { return this.walletAdapter.publicKey?.toBase58() ?? ""; }
-//      async sign(txs: any[]): Promise<any[]> { /* ... implement signing logic ... */ return []; } // Use any[] for now if UnsignedTransaction/SignedTx cause issues
-//      // OR
-//      // async signAndSend(txs: any[]): Promise<string[]> { /* ... implement signAndSend logic ... */ return []; } // Use any[]/string[] for now
-//    }
-// 3. Instantiate these wrappers: const suiSigner = new SuiSDKSignerWrapper(suiWalletAdapter);
-// 4. Call testBridge(suiSigner, solanaSigner) or bridgeTokenWithHelper directly with the wrapped signers.
-*/
+// Removed the problematic multi-line comment block
