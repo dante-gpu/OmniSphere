@@ -4,13 +4,14 @@ module omnisphere_sui::events {
     use sui::object::{ID};
     use sui::tx_context::{Self, TxContext}; // Import Self as tx_context
     use sui::event;
+    use std::type_name::{TypeName}; // Import TypeName
 
     /// Emitted when a new liquidity pool is created.
     struct PoolCreated has copy, drop {
         pool_id: ID, // The ID of the newly created Pool object
         creator: address, // Address that created the pool
-        token_a_type: vector<u8>, // Type name of token A
-        token_b_type: vector<u8>, // Type name of token B
+        token_a_type: TypeName, // Changed to TypeName
+        token_b_type: TypeName, // Changed to TypeName
         initial_liquidity_a: u64,
         initial_liquidity_b: u64,
         timestamp_ms: u64,
@@ -42,8 +43,8 @@ module omnisphere_sui::events {
 
     public fun emit_pool_created( // Changed to public
         pool_id: ID,
-        token_a_type: vector<u8>,
-        token_b_type: vector<u8>,
+        token_a_type: TypeName, // Changed parameter type
+        token_b_type: TypeName, // Changed parameter type
         initial_liquidity_a: u64,
         initial_liquidity_b: u64,
         ctx: &TxContext

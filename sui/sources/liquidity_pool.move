@@ -8,8 +8,7 @@ module omnisphere_sui::liquidity_pool {
     use sui::balance::{Self, Balance};
     use sui::vec_map::{Self, VecMap};
     use sui::event;
-    use std::type_name::{Self, get as get_type_name, TypeName, borrow_string}; // Import borrow_string
-    use std::ascii::{Self, String as AsciiString, into_bytes}; // Import into_bytes
+    use std::type_name::{Self, get as get_type_name, TypeName}; // Keep TypeName, remove get_address_bytes
 
     use std::string::{Self, String as StdString}; // Alias std::string::String
     use std::vector;
@@ -61,8 +60,8 @@ module omnisphere_sui::liquidity_pool {
         // Emit event
         events::emit_pool_created(
             object::uid_to_inner(&pool.id),
-            into_bytes(*borrow_string(get_type_name<CoinTypeA>())), // Get TypeName, borrow its ascii::String, convert to bytes
-            into_bytes(*borrow_string(get_type_name<CoinTypeB>())), // Get TypeName, borrow its ascii::String, convert to bytes
+            get_type_name<CoinTypeA>(), // Pass TypeName directly
+            get_type_name<CoinTypeB>(), // Pass TypeName directly
             initial_liquidity_a,
             initial_liquidity_b,
             ctx
@@ -118,6 +117,13 @@ module omnisphere_sui::liquidity_pool {
         pool: &Pool<CoinTypeA, CoinTypeB>
     ): PoolStatus {
         pool.status
+    }
+
+    /// Returns the object ID of the pool.
+    public fun get_pool_id<CoinTypeA, CoinTypeB>(
+        pool: &Pool<CoinTypeA, CoinTypeB>
+    ): ID {
+        object::uid_to_inner(&pool.id)
     }
 
     // --- Test Functions ---
