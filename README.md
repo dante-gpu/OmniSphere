@@ -605,7 +605,7 @@ module omnisphere::types {
 }
 ```
 
-### 4.6 Deployment Information
+### 4.6 Deployment Information 🛠️🔥📩
 
 The Sui smart contracts for OmniSphere have been deployed to the **Sui Testnet**.
 
