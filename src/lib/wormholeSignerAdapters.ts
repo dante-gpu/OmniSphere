@@ -1,21 +1,19 @@
 import {
-  Chain,
-  Signer,
+  // Chain, // Removed unused import
   UnsignedTransaction,
   SignedTx,
   TxHash,
-  ChainContext, // May be needed for transaction processing
-  NativeAddress,
-  Network, // Import Network type
+  ChainContext, // Keep ChainContext for potential future use in tx conversion
+  // NativeAddress, // Removed unused import
+  Network,
   SignOnlySigner, // Import specific signer types
   SignAndSendSigner,
-  chainToPlatform, // Import chainToPlatform mapping
+  // chainToPlatform, // Removed unused import
 } from "@wormhole-foundation/sdk";
-import { WalletContextState as SolanaWalletContextState } from "@solana/wallet-adapter-react";
-// Removed SuiWalletContextState import again
-import { Transaction, TransactionSignature } from "@solana/web3.js"; // Import Solana Transaction and TransactionSignature
-// Import Sui TransactionBlock if needed for type casting or manipulation
-import { TransactionBlock } from "@mysten/sui.js/transactions"; // Import Sui TransactionBlock
+// Removed unused SolanaWalletContextState import
+// Removed unused SuiWalletContextState import
+import { Transaction as SolanaTransaction } from "@solana/web3.js"; // Keep Solana Transaction import
+import { Transaction as SuiTransaction } from "@mysten/sui/transactions"; // Corrected import path
 import { SuiSignAndExecuteTransactionBlockOutput } from "@mysten/wallet-standard"; // Import Sui result type
 
 // --- Solana Signer Adapter ---
@@ -24,17 +22,16 @@ import { SuiSignAndExecuteTransactionBlockOutput } from "@mysten/wallet-standard
 // Adjust based on the actual properties you use from the hook
 interface SolanaWalletAdapter {
   publicKey: { toBase58(): string } | null;
-  signTransaction?<T extends Transaction>(transaction: T): Promise<T>;
-  signAllTransactions?<T extends Transaction>(transactions: T[]): Promise<T[]>;
-  sendTransaction?(transaction: Transaction, connection: any, options?: any): Promise<string>; // TxHash
+  signTransaction?<T extends SolanaTransaction>(transaction: T): Promise<T>;
+  signAllTransactions?<T extends SolanaTransaction>(transactions: T[]): Promise<T[]>;
+  sendTransaction?(transaction: SolanaTransaction, connection: any, options?: any): Promise<string>; // TxHash
   // Add other methods/properties if needed by the SDK's Signer implementation
 }
 
 // Implement SignOnlySigner for Solana with correct generics
 export class SolanaSignerAdapter implements SignOnlySigner<Network, "Solana"> {
-  // Assuming the wallet object from useWallet has publicKey and signTransaction/signAllTransactions
-  // Correct ChainContext generic type
-  constructor(private walletAdapter: SolanaWalletAdapter, private chainCtx: ChainContext<Network, "Solana">) {
+  // Removed unused chainCtx parameter
+  constructor(private walletAdapter: SolanaWalletAdapter) {
     if (!walletAdapter.publicKey) {
       throw new Error("Solana Wallet Adapter does not have a public key");
     }
@@ -56,8 +53,8 @@ export class SolanaSignerAdapter implements SignOnlySigner<Network, "Solana"> {
   async sign(txs: UnsignedTransaction<Network, "Solana">[]): Promise<SignedTx[]> {
     // Extract Solana Transaction objects from UnsignedTransactions
     // Assuming tx.transaction is already a Solana Transaction object prepared by the SDK
-    const transactionsToSign: Transaction[] = txs.map((tx, idx) => {
-      if (!(tx.transaction instanceof Transaction)) {
+    const transactionsToSign: SolanaTransaction[] = txs.map((tx, idx) => {
+      if (!(tx.transaction instanceof SolanaTransaction)) {
         console.error(`Transaction at index ${idx} is not a Solana Transaction object`, tx.transaction);
         throw new Error(`Invalid transaction type at index ${idx} for Solana signing.`);
       }
@@ -65,7 +62,7 @@ export class SolanaSignerAdapter implements SignOnlySigner<Network, "Solana"> {
     });
 
     try {
-      let signedTransactions: Transaction[];
+      let signedTransactions: SolanaTransaction[];
       if (this.walletAdapter.signAllTransactions) {
         console.log(`Signing ${transactionsToSign.length} transactions with signAllTransactions...`);
         signedTransactions = await this.walletAdapter.signAllTransactions(transactionsToSign);
@@ -103,17 +100,18 @@ export class SolanaSignerAdapter implements SignOnlySigner<Network, "Solana"> {
 interface SuiWalletAdapter {
   account: { address: string } | null;
   signAndExecuteTransactionBlock?(input: {
-    transactionBlock: TransactionBlock; // Use imported type
-    options?: any; // Include options if needed
-    chain?: string; // Include chain if needed
-  }): Promise<SuiSignAndExecuteTransactionBlockOutput>; // Use imported result type
+    transactionBlock: SuiTransaction;
+    options?: any;
+    chain?: string;
+  }): Promise<SuiSignAndExecuteTransactionBlockOutput>;
   // Add other methods/properties if needed
 }
 
 // Implement SignAndSendSigner for Sui with correct generics
 export class SuiSignerAdapter implements SignAndSendSigner<Network, "Sui"> {
-  // Correct ChainContext generic type
-  constructor(private walletAdapter: SuiWalletAdapter, private chainCtx: ChainContext<Network, "Sui">) {
+  // Removed unused chainCtx parameter
+  // Use `any` for walletAdapter type due to persistent import issues with @suiet/wallet-kit types
+  constructor(private walletAdapter: any) {
      if (!walletAdapter.account) {
       throw new Error("Sui Wallet Adapter does not have an account");
     }
@@ -136,11 +134,11 @@ export class SuiSignerAdapter implements SignAndSendSigner<Network, "Sui"> {
 
     const txHashes: TxHash[] = [];
     for (const tx of txs) {
-      // Assuming tx.transaction is already a Sui TransactionBlock object prepared by the SDK
-      const suiTx = tx.transaction as TransactionBlock; // Cast for type safety
+      // Assuming tx.transaction is already a Sui Transaction object prepared by the SDK
+      const suiTx = tx.transaction as SuiTransaction; // Cast for type safety
 
-      if (!(suiTx instanceof TransactionBlock)) {
-         console.error("Transaction object is not an instance of TransactionBlock:", suiTx);
+      if (!(suiTx instanceof SuiTransaction)) {
+         console.error("Transaction object is not an instance of Transaction:", suiTx);
          throw new Error("Invalid transaction type received for Sui signing.");
       }
 

@@ -35,6 +35,8 @@ interface OriginTokenInfo {
   decimals: number; // Store decimals for normalization
 }
 
+// Define the origin tokens (e.g., on Sepolia Testnet)
+// The SDK's tokenTransfer helper will automatically find the wrapped version on the destination chain.
 const ORIGIN_TOKENS: { [S in TokenSymbol]: OriginTokenInfo } = {
   USDC: {
     originChain: SEPOLIA_CHAIN, // Assuming USDC originates from Sepolia Testnet
@@ -43,7 +45,7 @@ const ORIGIN_TOKENS: { [S in TokenSymbol]: OriginTokenInfo } = {
   },
   USDT: {
     originChain: SEPOLIA_CHAIN, // Assuming USDT originates from Sepolia Testnet
-    originAddress: "0xaa8e23fb1079ea71e0a56f48a2aa51851d8433d0", // Sepolia USDT address (verify this)
+    originAddress: "0xaa8e23fb1079ea71e0a56f48a2aa51851d8433d0", // Sepolia USDT address
     decimals: 6, // Standard USDT decimals
   },
   // Example if bridging native SOL (though less common via token bridge)
