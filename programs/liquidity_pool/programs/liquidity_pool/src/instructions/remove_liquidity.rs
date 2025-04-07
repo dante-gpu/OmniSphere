@@ -150,11 +150,11 @@ pub fn handler(
     Ok(())
 }
 
-// Helper function for transferring tokens FROM the pool PDA
-fn transfer_pool_tokens<'info>(
-    token_program: AccountInfo<'info>,
-    source: AccountInfo<'info>, // Pool's token account
-    destination: AccountInfo<'info>, // User's token account
+    // Helper function for transferring tokens FROM the pool PDA
+    pub fn transfer_pool_tokens<'info>( // Make helper public
+        token_program: AccountInfo<'info>,
+        source: AccountInfo<'info>, // Pool's token account
+        destination: AccountInfo<'info>, // User's token account
     authority: AccountInfo<'info>, // Pool authority PDA
     pool_key: Pubkey,
     amount: u64,
@@ -175,11 +175,11 @@ fn transfer_pool_tokens<'info>(
     Ok(())
 }
 
-// Helper function for burning LP tokens
-fn burn_lp_tokens<'info>(
-    token_program: AccountInfo<'info>,
-    account_to_burn_from: AccountInfo<'info>, // User's LP token account
-    mint: AccountInfo<'info>, // LP mint
+    // Helper function for burning LP tokens
+    pub fn burn_lp_tokens<'info>( // Make helper public
+        token_program: AccountInfo<'info>,
+        account_to_burn_from: AccountInfo<'info>, // User's LP token account
+        mint: AccountInfo<'info>, // LP mint
     authority: AccountInfo<'info>, // User signing the transaction
     amount: u64,
 ) -> Result<()> {

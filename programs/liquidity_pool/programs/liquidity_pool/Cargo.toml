@@ -20,5 +20,6 @@ default = []
 anchor-lang = { version = "0.30.1", features = ["init-if-needed"] }
 anchor-spl = "0.30.1"
 wormhole-anchor-sdk = "0.30.1-alpha.3" # Use specific pre-release version suggested by error
+wormhole-sdk = "0.0.7" # Use the available version from crates.io
 hex = "0.4" # Often needed for working with addresses/hashes from Wormhole
 borsh = "0.10" # For payload deserialization (use version compatible with anchor/solana if needed)
