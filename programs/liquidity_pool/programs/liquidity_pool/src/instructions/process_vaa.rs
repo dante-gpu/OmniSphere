@@ -7,7 +7,7 @@ use crate::state::{Pool, BridgeRequest, BridgeStatus};
 use crate::errors::ErrorCode;
 use crate::payloads::{AddLiquidityCompletionPayload, RemoveLiquidityCompletionPayload};
 use wormhole_anchor_sdk::wormhole; // Keep anchor sdk import for BridgeData etc.
-use wormhole_vaas::{Vaa, Readable}; // Import Vaa and Readable trait
+use wormhole_vaas::{Vaa, Readable, payloads::PayloadKind}; // Import Vaa, Readable, and PayloadKind
 use std::io::Cursor; // Import Cursor for reading from slice
 use borsh::BorshDeserialize; // Keep for our custom payload deserialization
 use crate::instructions::add_liquidity::mint_lp_tokens;
@@ -119,10 +119,9 @@ pub fn handler(
     // Manually deserialize and verify the VAA data from the account info
     let posted_vaa_account_info = &ctx.accounts.posted_vaa;
     let posted_vaa_data = posted_vaa_account_info.try_borrow_data()?;
-    // Use Vaa::read with Cursor, specifying Vec<u8> as the generic payload type
+    // Use Vaa::read with Cursor
     let mut cursor = Cursor::new(&posted_vaa_data[..]);
-    // Deserialize specifying the payload type P as Vec<u8>
-    let vaa: Vaa<Vec<u8>> = Vaa::read(&mut cursor)?;
+    let vaa: Vaa = Vaa::read(&mut cursor)?;
 
     // TODO: Add proper VAA verification logic here using wormhole_bridge data
     // This typically involves checking the guardian signatures against the current guardian set
@@ -137,8 +136,13 @@ pub fn handler(
     */
 
     // --- Payload Processing ---
-    // Access the payload directly from the deserialized Vaa<Vec<u8>>
-    let payload: &[u8] = &vaa.payload; // payload is now Vec<u8>
+    // Extract the raw payload bytes by matching the PayloadKind enum
+    let payload: &[u8] = match &vaa.body.payload {
+        PayloadKind::Unknown(bytes) => bytes.as_slice(), // Get bytes from Unknown variant
+        // Handle other known Wormhole payload types if necessary for your protocol
+        // e.g., PayloadKind::TokenTransfer { ... } => return err!(ErrorCode::UnexpectedPayloadKind),
+        _ => return err!(ErrorCode::UnsupportedPayloadKind), // Error if not Unknown
+    };
     require!(!payload.is_empty(), ErrorCode::InvalidVaaPayload);
 
     let operation_code = payload[0];
