@@ -62,4 +62,7 @@ pub enum ErrorCode {
 
     #[msg("Invalid emitter address in VAA.")]
     InvalidEmitterAddress, // Placeholder for future check
+
+    #[msg("Received VAA with an unsupported payload kind.")]
+    UnsupportedPayloadKind,
 }

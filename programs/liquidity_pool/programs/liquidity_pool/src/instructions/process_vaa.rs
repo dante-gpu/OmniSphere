@@ -138,10 +138,8 @@ pub fn handler(
     // --- Payload Processing ---
     // Extract the raw payload bytes by matching the PayloadKind enum
     let payload: &[u8] = match &vaa.body.payload {
-        PayloadKind::Unknown(bytes) => bytes.as_slice(), // Get bytes from Unknown variant
-        // Handle other known Wormhole payload types if necessary for your protocol
-        // e.g., PayloadKind::TokenTransfer { ... } => return err!(ErrorCode::UnexpectedPayloadKind),
-        _ => return err!(ErrorCode::UnsupportedPayloadKind), // Error if not Unknown
+        PayloadKind::Binary(bytes) => bytes.as_slice(), // Use Binary variant
+        _ => return err!(ErrorCode::UnsupportedPayloadKind), // Error for other variants
     };
     require!(!payload.is_empty(), ErrorCode::InvalidVaaPayload);
 
@@ -149,15 +147,15 @@ pub fn handler(
     let specific_payload_data = &payload[1..];
 
     msg!("VAA Details: Chain={}, Addr={}, Seq={}",
-        vaa.emitter_chain, // Access directly from Vaa struct
-        hex::encode(vaa.emitter_address), // Access directly from Vaa struct
-        vaa.sequence // Access directly from Vaa struct
+        vaa.body.emitter_chain, // Access via vaa.body
+        hex::encode(vaa.body.emitter_address), // Access via vaa.body
+        vaa.body.sequence // Access via vaa.body
     );
     msg!("Processing Operation Code: {}", operation_code);
 
     // TODO: Add checks for emitter_chain and emitter_address if needed
-    // require!(vaa.emitter_chain == SUI_CHAIN_ID, ErrorCode::InvalidEmitterChain);
-    // require!(vaa.emitter_address == SUI_BRIDGE_ADDRESS, ErrorCode::InvalidEmitterAddress);
+    // require!(vaa.body.emitter_chain == SUI_CHAIN_ID, ErrorCode::InvalidEmitterChain);
+    // require!(vaa.body.emitter_address == SUI_BRIDGE_ADDRESS, ErrorCode::InvalidEmitterAddress);
 
     match operation_code {
         0 => { // AddLiquidityCompletion
