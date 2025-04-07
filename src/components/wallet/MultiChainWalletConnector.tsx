@@ -175,8 +175,11 @@ const MultiChainWalletConnector: React.FC = () => {
                <div className="flex flex-col items-center p-4 border border-neutral-200 rounded-lg">
                   <img src="https://cryptologos.cc/logos/sui-sui-logo.png" alt="Sui" className="w-10 h-10 mb-3" />
                   <h3 className="font-medium mb-3">Sui</h3>
-                  {/* ConnectButton handles its own modal/selection */}
-                  <ConnectButton style={{ width: '100%', height: '40px', lineHeight: '40px', borderRadius: '0.5rem' }}>
+                  {/* ConnectButton handles its own modal/selection - Added className for alignment */}
+                  <ConnectButton
+                    style={{ width: '100%', height: '40px', borderRadius: '0.5rem' }}
+                    className="flex items-center justify-center" // Attempt to center content
+                  >
                      Connect Sui Wallet
                   </ConnectButton>
                </div>

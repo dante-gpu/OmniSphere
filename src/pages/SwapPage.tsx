@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { useWallet } from '@suiet/wallet-kit';
-import { 
+import { useState, useEffect } from 'react'; // Removed React default import
+import { useWallet as useSuiWallet } from '@suiet/wallet-kit'; // Rename Sui hook
+import { useWallet as useSolanaWallet } from '@solana/wallet-adapter-react'; // Import Solana hook
+import {
   ArrowDownUp,
   Settings,
   Info,
@@ -19,9 +20,12 @@ import { useTokenBalance } from '../hooks/useTokenBalance';
 import { useTokenPrice } from '../hooks/useTokenPrice';
 
 const SwapPage = () => {
-  const { connected } = useWallet();
-  const { 
-    executeSwap, 
+  const { connected: suiConnected } = useSuiWallet(); // Get Sui connection status
+  const { connected: solanaConnected } = useSolanaWallet(); // Get Solana connection status
+  const isAnyWalletConnected = suiConnected || solanaConnected; // Check if either is connected
+
+  const {
+    executeSwap,
     calculateOutputAmount,
     getSwapRoute,
     getPriceImpact
@@ -154,7 +158,8 @@ const SwapPage = () => {
     }
   };
 
-  if (!connected) {
+  // Update the connection check to see if *neither* wallet is connected
+  if (!isAnyWalletConnected) {
     return (
       <div className="container mx-auto px-4 py-8">
         <Alert
