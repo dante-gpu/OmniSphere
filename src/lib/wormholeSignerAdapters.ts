@@ -12,9 +12,10 @@ import {
 } from "@wormhole-foundation/sdk";
 import { WalletContextState as SolanaWalletContextState } from "@solana/wallet-adapter-react";
 // Removed SuiWalletContextState import again
-import { Transaction } from "@solana/web3.js"; // Import Solana Transaction
+import { Transaction, TransactionSignature } from "@solana/web3.js"; // Import Solana Transaction and TransactionSignature
 // Import Sui TransactionBlock if needed for type casting or manipulation
-// import { TransactionBlock } from "@mysten/sui.js/transactions";
+import { TransactionBlock } from "@mysten/sui.js/transactions"; // Import Sui TransactionBlock
+import { SuiSignAndExecuteTransactionBlockOutput } from "@mysten/wallet-standard"; // Import Sui result type
 
 // --- Solana Signer Adapter ---
 
@@ -48,24 +49,41 @@ export class SolanaSignerAdapter implements SignOnlySigner<Network, "Solana"> {
   }
 
   // Implement sign method
-  async sign(txs: UnsignedTransaction<Network, "Solana">[]): Promise<SignedTx[]> { // Add generics to UnsignedTransaction
-    console.log("SolanaSignerAdapter: Signing transactions (placeholder)...", txs);
-    // TODO:
-    // 1. Convert each UnsignedTransaction to a Solana web3.js Transaction object.
-    //    - This might involve using chainCtx or platform methods if the SDK provides helpers.
-    //    - Or manually constructing the Transaction based on UnsignedTransaction fields.
-    // 2. Use walletAdapter.signTransaction or signAllTransactions to sign.
-    // 3. Serialize the signed transactions into the format expected by Wormhole SDK (SignedTx[]).
-    //    - This might just be the raw signed transaction buffer/string.
+  async sign(txs: UnsignedTransaction<Network, "Solana">[]): Promise<SignedTx[]> {
     if (!this.walletAdapter.signTransaction && !this.walletAdapter.signAllTransactions) {
-       throw new Error("Wallet adapter does not support signing method required by Wormhole SDK");
+      throw new Error("Wallet adapter does not support signing method required by Wormhole SDK");
     }
-    // Placeholder implementation:
-    // const transactionsToSign: Transaction[] = txs.map(tx => { /* Convert tx.transaction */ return new Transaction(); });
-    // const signedTxs = await this.walletAdapter.signAllTransactions!(transactionsToSign);
-    // return signedTxs.map(tx => tx.serialize()); // Example serialization
-    throw new Error("SolanaSignerAdapter.sign not implemented");
-    // return []; // Placeholder return
+
+    // Extract Solana Transaction objects from UnsignedTransactions
+    // Assuming tx.transaction is already a Solana Transaction object
+    const transactionsToSign: Transaction[] = txs.map((tx) => tx.transaction as Transaction);
+
+    try {
+      let signedTransactions: Transaction[];
+      if (this.walletAdapter.signAllTransactions) {
+        console.log(`Signing ${transactionsToSign.length} transactions with signAllTransactions...`);
+        signedTransactions = await this.walletAdapter.signAllTransactions(transactionsToSign);
+      } else if (this.walletAdapter.signTransaction) {
+        console.log(`Signing ${transactionsToSign.length} transactions individually with signTransaction...`);
+        signedTransactions = [];
+        for (const tx of transactionsToSign) {
+          signedTransactions.push(await this.walletAdapter.signTransaction(tx));
+        }
+      } else {
+        // Should be caught by the initial check, but as a safeguard:
+        throw new Error("No suitable signing method found on wallet adapter.");
+      }
+
+      // Serialize signed transactions. Wormhole SDK expects Uint8Array[] or similar.
+      // tx.serialize() returns Buffer, which is compatible with Uint8Array.
+      const serializedSignedTxs: SignedTx[] = signedTransactions.map(tx => tx.serialize());
+      console.log("Successfully signed and serialized transactions.");
+      return serializedSignedTxs;
+
+    } catch (error) {
+      console.error("Error signing Solana transactions:", error);
+      throw new Error(`Failed to sign Solana transactions: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 }
 
@@ -74,21 +92,26 @@ export class SolanaSignerAdapter implements SignOnlySigner<Network, "Solana"> {
 
 // Define the structure expected from the Sui useWallet hook more explicitly
 // Adjust based on the actual properties you use from the hook
-// Using `any` for now for the adapter type due to persistent import issues
 interface SuiWalletAdapter {
   account: { address: string } | null;
-  signAndExecuteTransactionBlock?(input: any): Promise<any>; // Check exact input/output types
+  signAndExecuteTransactionBlock?(input: {
+    transactionBlock: TransactionBlock; // Use imported type
+    options?: any; // Include options if needed
+    chain?: string; // Include chain if needed
+  }): Promise<SuiSignAndExecuteTransactionBlockOutput>; // Use imported result type
   // Add other methods/properties if needed
 }
 
 // Implement SignAndSendSigner for Sui with correct generics
 export class SuiSignerAdapter implements SignAndSendSigner<Network, "Sui"> {
   // Correct ChainContext generic type
-  // Use `any` for walletAdapter type due to import issues
-  constructor(private walletAdapter: any, private chainCtx: ChainContext<Network, "Sui">) {
+  constructor(private walletAdapter: SuiWalletAdapter, private chainCtx: ChainContext<Network, "Sui">) {
      if (!walletAdapter.account) {
       throw new Error("Sui Wallet Adapter does not have an account");
     }
+     if (!walletAdapter.signAndExecuteTransactionBlock) {
+       throw new Error("Wallet adapter does not support signAndExecuteTransactionBlock method required by Wormhole SDK");
+     }
   }
 
   chain(): "Sui" { // Explicit return type
@@ -100,45 +123,48 @@ export class SuiSignerAdapter implements SignAndSendSigner<Network, "Sui"> {
   }
 
   // Implement signAndSend method
-  async signAndSend(txs: UnsignedTransaction<Network, "Sui">[]): Promise<TxHash[]> { // Add generics to UnsignedTransaction
-    console.log("SuiSignerAdapter: Signing and sending transactions (placeholder)...", txs);
-    // TODO:
-    // 1. Convert each UnsignedTransaction to a Sui TransactionBlock object.
-    //    - This might involve using chainCtx or platform methods if the SDK provides helpers.
-    //    - Or manually constructing the TransactionBlock.
-    // 2. Use walletAdapter.signAndExecuteTransactionBlock for each transaction.
-    // 3. Extract and return the transaction digests (TxHash[]) from the results.
-    if (!this.walletAdapter.signAndExecuteTransactionBlock) {
-       throw new Error("Wallet adapter does not support signAndExecuteTransactionBlock method required by Wormhole SDK");
-    }
+  async signAndSend(txs: UnsignedTransaction<Network, "Sui">[]): Promise<TxHash[]> {
+    console.log(`SuiSignerAdapter: Signing and sending ${txs.length} transactions...`);
 
     const txHashes: TxHash[] = [];
     for (const tx of txs) {
-       // Placeholder: Assume tx.transaction is the Sui TransactionBlock or can be converted
-       // const suiTx = tx.transaction as TransactionBlock; // Needs proper conversion/casting
-       const suiTx = tx.transaction; // Assuming it's already the correct type for now
-       try {
-          // Ensure the input matches what signAndExecuteTransactionBlock expects
-          const result = await this.walletAdapter.signAndExecuteTransactionBlock({ transactionBlock: suiTx });
-          // Extract digest from result - structure depends on wallet kit version
-          if (!result || !result.digest) {
-             throw new Error("Invalid result structure from signAndExecuteTransactionBlock");
-          }
-          txHashes.push(result.digest);
-          console.log("Sui Tx Result:", result);
-       } catch (e) {
-          console.error("Sui signAndSend error:", e);
-          throw new Error(`Failed to sign and send Sui transaction: ${e}`);
-       }
+      // Assuming tx.transaction is already a Sui TransactionBlock object prepared by the SDK
+      const suiTx = tx.transaction as TransactionBlock; // Cast for type safety
+
+      if (!(suiTx instanceof TransactionBlock)) {
+         console.error("Transaction object is not an instance of TransactionBlock:", suiTx);
+         throw new Error("Invalid transaction type received for Sui signing.");
+      }
+
+      try {
+        console.log(`Executing transaction block for description: ${tx.description}`);
+        const result: SuiSignAndExecuteTransactionBlockOutput =
+          await this.walletAdapter.signAndExecuteTransactionBlock!({
+            transactionBlock: suiTx,
+            // chain: 'sui:testnet' // Optional: Specify chain if required by adapter
+          });
+
+        if (!result || !result.digest) {
+          throw new Error("Invalid result structure from signAndExecuteTransactionBlock");
+        }
+        console.log(`Sui Tx successful: ${result.digest}`);
+        txHashes.push(result.digest);
+
+      } catch (e) {
+        console.error("Sui signAndSend error:", e);
+        // Improve error message if possible
+        const errorMessage = e instanceof Error ? e.message : String(e);
+        throw new Error(`Failed to sign and send Sui transaction (${tx.description}): ${errorMessage}`);
+      }
     }
     return txHashes;
   }
 
-  // Comment out the unused sign method for Sui
-  // async sign(txs: UnsignedTransaction[]): Promise<SignedTx[]> {
-  //    console.warn("SuiSignerAdapter: sign() called, but signAndSend() is typically used for Sui.", txs);
-  //    // Placeholder - sign-only is less common for Sui wallet standards
-  //    throw new Error("SuiSignerAdapter.sign not implemented/supported");
-  //    // return [];
-  // }
+  // Sign-only might be harder with Sui standard wallets
+  async sign(txs: UnsignedTransaction<Network, "Sui">[]): Promise<SignedTx[]> {
+     console.warn("SuiSignerAdapter: sign() called, but signAndSend() is typically used for Sui.", txs);
+     // Placeholder - sign-only is less common for Sui wallet standards
+     throw new Error("SuiSignerAdapter.sign not implemented/supported");
+     // return []; // Placeholder return
+  }
 }

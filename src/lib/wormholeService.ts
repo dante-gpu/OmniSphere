@@ -10,6 +10,7 @@ import {
   encoding,
   NativeAddress,
   TokenTransfer, // Import the TokenTransfer helper
+  chainToChainId, // Import chainToChainId if needed, or use Chain type directly
 } from "@wormhole-foundation/sdk";
 import { EvmPlatform } from "@wormhole-foundation/sdk-evm";
 import { SolanaPlatform } from "@wormhole-foundation/sdk-solana";
@@ -20,34 +21,43 @@ import { parseUnits } from "ethers"; // Import parseUnits from ethers
 const NETWORK: Network = "Testnet";
 const SOLANA_CHAIN: Chain = "Solana";
 const SUI_CHAIN: Chain = "Sui";
+const SEPOLIA_CHAIN: Chain = "Sepolia"; // Define Sepolia for origin tokens
 
 // Define types for better clarity
-type SupportedChain = typeof SOLANA_CHAIN | typeof SUI_CHAIN;
+type SupportedChain = typeof SOLANA_CHAIN | typeof SUI_CHAIN; // Chains users can select as source/dest
 type TokenSymbol = "USDC" | "USDT";
-type TestnetTokenConfig = {
-  [C in SupportedChain]: {
-    [S in TokenSymbol]: string; // Assuming address is string
-  };
-};
 
-// Example Testnet Token Addresses (Replace with actual Testnet USDC/USDT if available)
-// These are placeholders and MUST be verified/updated
-// TODO: FIND ACTUAL WORMHOLE-WRAPPED USDC/USDT ADDRESSES ON SUI TESTNET
-const TESTNET_TOKENS: TestnetTokenConfig = {
-  Solana: {
-    USDC: "Gh9ZwEmdLJ8DscKNTkTqPbNwLNNBjuSzaG9Vp2KGtKJr", // Example Solana Devnet USDC
-    USDT: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", // Example Solana Devnet USDT (Check if exists) - LIKELY DOES NOT EXIST ON DEVNET
+// Define Origin Token Addresses on their native Testnets
+// These are the tokens that will be wrapped by Wormhole on other chains
+interface OriginTokenInfo {
+  originChain: Chain;
+  originAddress: string;
+  decimals: number; // Store decimals for normalization
+}
+
+const ORIGIN_TOKENS: { [S in TokenSymbol]: OriginTokenInfo } = {
+  USDC: {
+    originChain: SEPOLIA_CHAIN, // Assuming USDC originates from Sepolia Testnet
+    originAddress: "0x94a9d9ac8a22534e3faca9f4e7f2e2cf85d5e4c8", // Sepolia USDC address
+    decimals: 6, // Standard USDC decimals
   },
-  Sui: {
-    USDC: "0xPLACEHOLDER_SUI_USDC_ADDRESS", // Placeholder - MUST BE REPLACED
-    USDT: "0xPLACEHOLDER_SUI_USDT_ADDRESS", // Placeholder - MUST BE REPLACED
+  USDT: {
+    originChain: SEPOLIA_CHAIN, // Assuming USDT originates from Sepolia Testnet
+    originAddress: "0xaa8e23fb1079ea71e0a56f48a2aa51851d8433d0", // Sepolia USDT address (verify this)
+    decimals: 6, // Standard USDT decimals
   },
+  // Example if bridging native SOL (though less common via token bridge)
+  // SOL: {
+  //   originChain: SOLANA_CHAIN,
+  //   originAddress: "native",
+  //   decimals: 9, // SOL decimals
+  // }
 };
 
 // Initialize Wormhole SDK Context
 async function initializeWormholeContext() {
-  // Register platforms with core
-  const platforms = [SolanaPlatform, SuiPlatform]; // Add EvmPlatform if needed later
+  // Register platforms with core - Include EvmPlatform for Sepolia origin
+  const platforms = [EvmPlatform, SolanaPlatform, SuiPlatform];
   const wormhole = new Wormhole(NETWORK, platforms);
   return wormhole;
 }
@@ -69,30 +79,30 @@ export async function bridgeTokenWithHelper(
   console.log(`Bridging ${amount} ${tokenSymbol} from ${sourceChain} to ${targetChain} using TokenTransfer helper`);
 
   const wh = await initializeWormholeContext();
-  const sourceChainContext = wh.getChain(sourceChain); // Get source chain context early
 
-  const tokenAddress = TESTNET_TOKENS[sourceChain][tokenSymbol];
-  if (!tokenAddress || tokenAddress.startsWith("0xPLACEHOLDER")) {
-    throw new Error(`Token ${tokenSymbol} address not configured or invalid for ${sourceChain} on Testnet`);
+  const originTokenInfo = ORIGIN_TOKENS[tokenSymbol];
+  if (!originTokenInfo) {
+    throw new Error(`Token symbol ${tokenSymbol} not configured`);
   }
 
-  // Create TokenId first
-  const sourceToken: TokenId = Wormhole.tokenId(sourceChain, tokenAddress);
+  // Create TokenId using the *origin* chain and address
+  const originTokenId: TokenId = Wormhole.tokenId(
+    originTokenInfo.originChain,
+    originTokenInfo.originAddress
+  );
 
-  // Get token decimals using the Wormhole instance and the address part of TokenId
-  const decimals = await wh.getDecimals(sourceChain, sourceToken.address);
-  // Normalize amount using ethers.parseUnits
-  const normalizedAmountBigInt = parseUnits(amount, decimals); // Use ethers.parseUnits
+  // Normalize amount using the known decimals
+  const normalizedAmountBigInt = parseUnits(amount, originTokenInfo.decimals);
 
   // Create ChainAddress objects using Wormhole static methods
   const senderChainAddr: ChainAddress = Wormhole.chainAddress(sourceChain, sourceSigner.address());
   const destinationChainAddr: ChainAddress = Wormhole.chainAddress(targetChain, recipientAddress);
 
   // Create a TokenTransfer object to track the state of the transfer
-  // Pass the normalized amount as bigint
+  // Pass the origin TokenId and normalized amount
   const transfer = await wh.tokenTransfer(
-    sourceToken,
-    normalizedAmountBigInt, // Pass the bigint amount
+    originTokenId, // Use the origin TokenId
+    normalizedAmountBigInt,
     senderChainAddr,
     destinationChainAddr,
     false, // Automatic delivery set to false (manual)
@@ -116,7 +126,9 @@ export async function bridgeTokenWithHelper(
 
   // Redeem on the destination chain
   console.log("Completing transfer...");
-  // Pass the adapted signer for the destination chain if needed, otherwise sourceSigner might work if it handles both
+  // Pass the adapted signer for the destination chain if needed
+  // For manual transfers, the destination signer might be required
+  // For simplicity here, using sourceSigner, but this might need adjustment
   const destinationTxids = await transfer.completeTransfer(sourceSigner);
   console.log(`Completed transfer with destination txids: ${destinationTxids}`);
 
@@ -127,5 +139,3 @@ export async function bridgeTokenWithHelper(
     destinationTxids,
   };
 }
-
-// Removed the problematic multi-line comment block
