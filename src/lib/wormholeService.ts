@@ -6,10 +6,11 @@ import {
   Signer,
   TokenId,
   ChainAddress,
-  UniversalAddress, // Import UniversalAddress
-  encoding, // Import encoding utils
+  UniversalAddress,
+  encoding,
+  NativeAddress, // Import NativeAddress
 } from "@wormhole-foundation/sdk";
-import { normalizeAmount } from "@wormhole-foundation/sdk-base"; // Import normalizeAmount from sdk-base
+import { normalizeAmount } from "@wormhole-foundation/sdk-base"; // Try importing normalizeAmount from sdk-base again
 import { EvmPlatform } from "@wormhole-foundation/sdk-evm";
 import { SolanaPlatform } from "@wormhole-foundation/sdk-solana";
 import { SuiPlatform } from "@wormhole-foundation/sdk-sui";
@@ -72,14 +73,16 @@ export async function bridgeToken(
   // Get chain contexts
   const sourceChainContext = wh.getChain(sourceChain);
   const targetChainContext = wh.getChain(targetChain);
+  const sourcePlatform = wh.getPlatform(sourceChain); // Get platform instance
+  const targetPlatform = wh.getPlatform(targetChain); // Get platform instance
 
   const tokenAddress = TESTNET_TOKENS[sourceChain][tokenSymbol];
   if (!tokenAddress || tokenAddress === "0x...") {
     throw new Error(`Token ${tokenSymbol} address not configured or invalid for ${sourceChain} on Testnet`);
   }
 
-  // Get token details (decimals) - Accessing via platform context
-  const tokenDetails = await sourceChainContext.platform.getToken(tokenAddress); // Moved getToken back to platform
+  // Get token details (decimals) - Accessing via platform instance
+  const tokenDetails = await sourcePlatform.getToken(tokenAddress); // Try getToken on platform instance
   if (!tokenDetails) {
     throw new Error(`Could not fetch token details for ${tokenSymbol} on ${sourceChain}`);
   }
@@ -90,23 +93,25 @@ export async function bridgeToken(
 
 
   // Get the sender address from the signer
-  const senderAddress = sourceSigner.address(); // Assuming address() method exists on Signer
+  const senderAddressStr = sourceSigner.address(); // Assuming address() method exists on Signer and returns string
+  const senderNativeAddr = sourcePlatform.parseAddress(senderAddressStr); // Use platform.parseAddress
 
   // Create ChainAddress objects using the SDK's encoding utilities
-  const sourceTokenUniversalAddr = new UniversalAddress(tokenAddress); // Assuming address is already normalized hex/base58
-  const sourceTokenId: TokenId = { chain: sourceChain, address: sourceTokenUniversalAddr };
+  const sourceTokenNativeAddr = sourcePlatform.parseAddress(tokenAddress); // Use platform.parseAddress
+  const sourceTokenId: TokenId = { chain: sourceChain, address: sourceTokenNativeAddr.toUniversalAddress() }; // Convert to Universal for TokenId
 
-  const targetRecipientUniversalAddr = new UniversalAddress(recipientAddress); // Assuming address is already normalized hex/base58
-  const targetRecipientChainAddr: ChainAddress = { chain: targetChain, address: targetRecipientUniversalAddr };
+  const targetRecipientNativeAddr = targetPlatform.parseAddress(recipientAddress); // Use platform.parseAddress
+  const targetRecipientChainAddr: ChainAddress = { chain: targetChain, address: targetRecipientNativeAddr.toUniversalAddress() }; // Convert to Universal for ChainAddress
+
 
   // Get the Token Bridge protocol client for the source chain
   const tokenBridge = await sourceChainContext.getTokenBridge(); // Get Token Bridge context
 
   // Initiate transfer using the TokenBridge context
   const transfer = tokenBridge.transfer(
-    new UniversalAddress(senderAddress), // Wrap senderAddress
+    senderNativeAddr.toUniversalAddress(), // Convert sender to UniversalAddress
     targetRecipientChainAddr,
-    sourceTokenId.address, // Pass the UniversalAddress part of TokenId
+    sourceTokenId.address, // Already UniversalAddress in TokenId
     normalizedAmt
     // Optional: payload, nativeGasAmount etc.
   );
