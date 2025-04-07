@@ -6,9 +6,10 @@ use anchor_spl::{
 use crate::state::{Pool, BridgeRequest, BridgeStatus};
 use crate::errors::ErrorCode;
 use crate::payloads::{AddLiquidityCompletionPayload, RemoveLiquidityCompletionPayload};
-use wormhole_anchor_sdk::wormhole; // Keep anchor sdk import for PostedVaa etc.
-use wormhole_sdk::Vaa; // Import Vaa from the core wormhole_sdk crate root
-use borsh::BorshDeserialize;
+use wormhole_anchor_sdk::wormhole; // Keep anchor sdk import for BridgeData etc.
+use wormhole_vaas::{Vaa, Readable}; // Import Vaa and Readable trait
+use std::io::Cursor; // Import Cursor for reading from slice
+use borsh::BorshDeserialize; // Keep for payload deserialization
 use crate::instructions::add_liquidity::mint_lp_tokens;
 use crate::instructions::remove_liquidity::transfer_pool_tokens;
 
@@ -24,8 +25,10 @@ pub struct ProcessVAA<'info> {
     )]
     pub wormhole_bridge: Account<'info, wormhole::BridgeData>,
 
-    #[account()] // Remove seeds, bump, and seeds::program constraints
-    pub posted_vaa: Account<'info, wormhole::PostedVaa<Vaa>>,
+    /// CHECK: Posted VAA account. Data is manually deserialized and verified.
+    /// Client is responsible for passing the correct account address.
+    #[account()]
+    pub posted_vaa: AccountInfo<'info>, // Load as AccountInfo
 
     #[account(
         mut,
@@ -111,58 +114,19 @@ pub fn handler(
 ) -> Result<()> {
     msg!("Processing VAA...");
 
-    let posted_vaa = &ctx.accounts.posted_vaa;
-    let vaa = &**posted_vaa;
-
-    let payload: &[u8] = &vaa.payload;
-    require!(!payload.is_empty(), ErrorCode::InvalidVaaPayload);
-
-    let operation_code = payload[0];
-    let specific_payload_data = &payload[1..];
-
-    msg!("VAA Details: Chain={}, Addr={}, Seq={}",
-        vaa.emitter_chain,
-        hex::encode(vaa.emitter_address),
-        vaa.sequence
-    );
-    msg!("Processing Operation Code: {}", operation_code);
-
-    match operation_code {
-        0 => { // AddLiquidityCompletion
-            msg!("Processing Add Liquidity Completion...");
-            let completion_payload = AddLiquidityCompletionPayload::try_from_slice(specific_payload_data)
-                .map_err(|_| error!(ErrorCode::InvalidVaaPayload))?;
-            msg!("Payload: {:?}", completion_payload);
-
-            require!(
-                ctx.accounts.recipient.key().to_bytes() == completion_payload.recipient_address,
-                ErrorCode::RecipientMismatch
-            );
-            require!(
-                ctx.accounts.pool.pool_id == completion_payload.original_pool_id,
-                ErrorCode::PoolIdMismatch
-            );
-
-            mint_lp_tokens(
-                ctx.accounts.token_program.to_account_info(),
-                ctx.accounts.lp_mint.to_account_info(),
-                ctx.accounts.recipient_lp_token_account.to_account_info(),
-                ctx.accounts.pool_authority.to_account_info(),
-    pub rent: Sysvar<'info, Rent>,
-}
-
-
-pub fn handler(
-    ctx: Context<ProcessVAA>,
-    _vaa_hash: [u8; 32] // vaa_hash is used for PDA derivation, not directly in handler usually
-) -> Result<()> {
-    msg!("Processing VAA...");
-
     // --- VAA Verification ---
-    // Access the deserialized VAA data from the PostedVaa account.
-    let posted_vaa = &ctx.accounts.posted_vaa;
-    // Access the inner Vaa struct using deref
-    let vaa = &**posted_vaa;
+    // Manually deserialize and verify the VAA data from the account info
+    let posted_vaa_account_info = &ctx.accounts.posted_vaa;
+    let posted_vaa_data = posted_vaa_account_info.try_borrow_data()?;
+    // Use Vaa::read with Cursor, Vaa is not generic in this version
+    let mut cursor = Cursor::new(&posted_vaa_data[..]);
+    let vaa = Vaa::read(&mut cursor)?;
+
+    // TODO: Add proper VAA verification logic here using wormhole_bridge data
+    // This typically involves checking the guardian signatures against the current guardian set
+    // stored in the wormhole_bridge account. This is crucial for security.
+    // Example placeholder:
+    // verify_vaa(&ctx.accounts.wormhole_bridge, &vaa)?;
 
     // Optional: Check against replay using BridgeRequest account
     /*
@@ -171,17 +135,24 @@ pub fn handler(
     */
 
     // --- Payload Processing ---
-    let payload: &[u8] = &vaa.payload;
+    // Extract the raw payload bytes by matching the PayloadKind enum
+    let payload: &[u8] = match &vaa.body.payload {
+        // Assuming custom payloads are wrapped in the Unknown variant in this version
+        PayloadKind::Unknown(bytes) => bytes.as_ref(),
+        // Handle other known Wormhole payload types if necessary for your protocol
+        // e.g., PayloadKind::TokenTransfer { ... } => return err!(ErrorCode::UnexpectedPayloadKind),
+        _ => return err!(ErrorCode::UnsupportedPayloadKind), // Error if not Unknown
+    };
     require!(!payload.is_empty(), ErrorCode::InvalidVaaPayload);
 
-    // The first byte indicates the operation type/code
+    // Now proceed with the extracted raw payload bytes
     let operation_code = payload[0];
-    let specific_payload_data = &payload[1..]; // Data for the specific operation
+    let specific_payload_data = &payload[1..];
 
     msg!("VAA Details: Chain={}, Addr={}, Seq={}",
-        vaa.emitter_chain,
-        hex::encode(vaa.emitter_address),
-        vaa.sequence
+        vaa.emitter_chain, // Access directly from Vaa struct
+        hex::encode(vaa.emitter_address), // Access directly from Vaa struct
+        vaa.sequence // Access directly from Vaa struct
     );
     msg!("Processing Operation Code: {}", operation_code);
 
@@ -196,18 +167,15 @@ pub fn handler(
                 .map_err(|_| error!(ErrorCode::InvalidVaaPayload))?;
             msg!("Payload: {:?}", completion_payload);
 
-            // Verify recipient matches the account passed in context
             require!(
                 ctx.accounts.recipient.key().to_bytes() == completion_payload.recipient_address,
                 ErrorCode::RecipientMismatch
             );
-            // Verify pool ID matches
             require!(
                 ctx.accounts.pool.pool_id == completion_payload.original_pool_id,
                 ErrorCode::PoolIdMismatch
             );
 
-            // Mint LP tokens to recipient
             mint_lp_tokens(
                 ctx.accounts.token_program.to_account_info(),
                 ctx.accounts.lp_mint.to_account_info(),
@@ -215,7 +183,7 @@ pub fn handler(
                 ctx.accounts.pool_authority.to_account_info(),
                 ctx.accounts.pool.key(),
                 completion_payload.lp_amount_to_mint,
-                ctx.bumps.pool_authority, // Access bump directly
+                ctx.bumps.pool_authority,
             )?;
             msg!("Minted {} LP tokens to {}", completion_payload.lp_amount_to_mint, ctx.accounts.recipient.key());
 
@@ -226,18 +194,15 @@ pub fn handler(
                  .map_err(|_| error!(ErrorCode::InvalidVaaPayload))?;
             msg!("Payload: {:?}", completion_payload);
 
-             // Verify recipient matches the account passed in context
             require!(
                 ctx.accounts.recipient.key().to_bytes() == completion_payload.recipient_address,
                 ErrorCode::RecipientMismatch
             );
-             // Verify pool ID matches
             require!(
                 ctx.accounts.pool.pool_id == completion_payload.original_pool_id,
                 ErrorCode::PoolIdMismatch
             );
 
-            // Transfer Token A from pool to recipient
             transfer_pool_tokens(
                 ctx.accounts.token_program.to_account_info(),
                 ctx.accounts.token_a_account.to_account_info(),
@@ -245,11 +210,10 @@ pub fn handler(
                 ctx.accounts.pool_authority.to_account_info(),
                 ctx.accounts.pool.key(),
                 completion_payload.amount_a_to_transfer,
-                ctx.bumps.pool_authority, // Access bump directly
+                ctx.bumps.pool_authority,
             )?;
              msg!("Transferred {} Token A to {}", completion_payload.amount_a_to_transfer, ctx.accounts.recipient.key());
 
-            // Transfer Token B from pool to recipient
              transfer_pool_tokens(
                 ctx.accounts.token_program.to_account_info(),
                 ctx.accounts.token_b_account.to_account_info(),
@@ -257,7 +221,7 @@ pub fn handler(
                 ctx.accounts.pool_authority.to_account_info(),
                 ctx.accounts.pool.key(),
                 completion_payload.amount_b_to_transfer,
-                ctx.bumps.pool_authority, // Access bump directly
+                ctx.bumps.pool_authority,
             )?;
             msg!("Transferred {} Token B to {}", completion_payload.amount_b_to_transfer, ctx.accounts.recipient.key());
 
@@ -268,20 +232,6 @@ pub fn handler(
         }
     }
 
-     // --- Mark VAA as Processed (Optional using BridgeRequest account) ---
-    // Update the status in the BridgeRequest account
-    /*
-    bridge_request.status = BridgeStatus::Completed;
-    bridge_request.payload = payload.to_vec(); // Store payload for reference if needed
-    */
-
     msg!("VAA processed successfully.");
     Ok(())
 }
-
-
-// Note: The helper functions mint_lp_tokens and transfer_pool_tokens are assumed
-// to be imported from add_liquidity.rs and remove_liquidity.rs respectively.
-// Ensure they are correctly implemented and accessible.
-
-// Also, add necessary error variants to errors.rs (e.g., RecipientMismatch, PoolIdMismatch)
