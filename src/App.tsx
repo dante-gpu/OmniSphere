@@ -1,0 +1,86 @@
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from 'react-query';
+import { WalletProvider } from '@suiet/wallet-kit';
+import { Toaster } from 'react-hot-toast';
+import Navbar from './components/layout/Navbar';
+import Footer from './components/layout/Footer';
+import HomePage from './pages/HomePage';
+import PoolsPage from './pages/PoolsPage';
+import PoolDetailPage from './pages/PoolDetailPage';
+import WalletPage from './pages/WalletPage';
+import BridgePage from './pages/BridgePage';
+import AnalyticsPage from './pages/AnalyticsPage';
+import PoolAnalyticsPage from './pages/PoolAnalyticsPage';
+import UserAnalyticsPage from './pages/UserAnalyticsPage';
+import SettingsPage from './pages/settings/SettingsPage';
+import NotificationsPage from './pages/settings/NotificationsPage';
+import SecurityPage from './pages/settings/SecurityPage';
+import SwapPage from './pages/SwapPage';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 2,
+      refetchOnWindowFocus: false,
+      staleTime: 30000,
+    },
+  },
+});
+
+function App() {
+  return (
+    <WalletProvider>
+      <QueryClientProvider client={queryClient}>
+        <Router>
+          <div className="min-h-screen flex flex-col">
+            <Navbar />
+            <main className="flex-grow">
+              <Routes>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/pools" element={<PoolsPage />} />
+                <Route path="/pools/:id" element={<PoolDetailPage />} />
+                <Route path="/wallet" element={<WalletPage />} />
+                <Route path="/bridge" element={<BridgePage />} />
+                <Route path="/analytics" element={<AnalyticsPage />} />
+                <Route path="/analytics/pools/:id" element={<PoolAnalyticsPage />} />
+                <Route path="/analytics/user" element={<UserAnalyticsPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/settings/notifications" element={<NotificationsPage />} />
+                <Route path="/settings/security" element={<SecurityPage />} />
+                <Route path="/swap" element={<SwapPage />} />
+              </Routes>
+            </main>
+            <Footer />
+          </div>
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 5000,
+              style: {
+                background: '#363636',
+                color: '#fff',
+              },
+              success: {
+                duration: 3000,
+                iconTheme: {
+                  primary: '#4ade80',
+                  secondary: '#fff',
+                },
+              },
+              error: {
+                duration: 4000,
+                iconTheme: {
+                  primary: '#ef4444',
+                  secondary: '#fff',
+                },
+              },
+            }}
+          />
+        </Router>
+      </QueryClientProvider>
+    </WalletProvider>
+  );
+}
+
+export default App;
