@@ -5,6 +5,7 @@ use anchor_spl::token::{self, Token, TokenAccount, Mint, Transfer, MintTo, Burn}
 pub mod instructions;
 pub mod state;
 pub mod errors;
+pub mod payloads; // Declare payloads module
 
 // Import modules created earlier (relative path from this file's perspective)
 // Note: Anchor build might handle paths differently, but typically modules are declared relative to lib.rs

@@ -50,4 +50,16 @@ pub enum ErrorCode {
 
     #[msg("Invalid pool status.")]
     InvalidPoolStatus,
+
+    #[msg("Recipient address in VAA payload does not match provided account.")]
+    RecipientMismatch,
+
+    #[msg("Pool ID in VAA payload does not match the target pool account.")]
+    PoolIdMismatch,
+
+    #[msg("Invalid emitter chain ID in VAA.")]
+    InvalidEmitterChain, // Placeholder for future check
+
+    #[msg("Invalid emitter address in VAA.")]
+    InvalidEmitterAddress, // Placeholder for future check
 }

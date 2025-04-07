@@ -119,7 +119,7 @@ pub fn handler(
         ctx.accounts.pool_authority.to_account_info(),
         pool.key(),
         amount_a_out,
-        *ctx.bumps.get("pool_authority").unwrap(), // Pass the specific bump seed
+        ctx.bumps.pool_authority, // Access bump directly
     )?;
 
     transfer_pool_tokens(
@@ -129,7 +129,7 @@ pub fn handler(
         ctx.accounts.pool_authority.to_account_info(),
         pool.key(),
         amount_b_out,
-        *ctx.bumps.get("pool_authority").unwrap(), // Pass the specific bump seed
+        ctx.bumps.pool_authority, // Access bump directly
     )?;
 
     // Burn user's LP tokens
