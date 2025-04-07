@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
+import { useState } from 'react'; // Removed React default import
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, ChevronDown, BarChart2, ArrowRightLeft } from 'lucide-react';
-import { useWallet } from '@suiet/wallet-kit';
-import WalletConnector from '../wallet/WalletConnector';
+// Removed unused Sui useWallet import
+import MultiChainWalletConnector from '../wallet/MultiChainWalletConnector'; // Import the new connector
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
-  const { account, connected } = useWallet();
+  // Removed unused Sui wallet state
   const location = useLocation();
 
   const isActive = (path: string) => location.pathname.startsWith(path);
@@ -99,14 +99,10 @@ const Navbar = () => {
               </Link>
             </div>
           </div>
-          
-          <div className="hidden md:flex items-center space-x-4">
-            {connected && account && (
-              <div className="px-4 py-2 bg-neutral-50 rounded-lg">
-                <span className="text-sm text-neutral-500">Connected to Sui</span>
-              </div>
-            )}
-            <WalletConnector />
+
+          <div className="hidden md:flex items-center">
+            {/* Replaced old connector with the new one */}
+            <MultiChainWalletConnector />
           </div>
 
           <div className="flex md:hidden items-center">
@@ -192,7 +188,8 @@ const Navbar = () => {
               Wallet
             </Link>
             <div className="px-3 py-2">
-              <WalletConnector />
+              {/* Replaced old connector with the new one in mobile view */}
+              <MultiChainWalletConnector />
             </div>
           </div>
         </div>
