@@ -8,14 +8,13 @@ import {
   ChainAddress,
   UniversalAddress,
   encoding,
-  NativeAddress, // Import NativeAddress
+  NativeAddress,
+  TokenTransfer, // Import the TokenTransfer helper
 } from "@wormhole-foundation/sdk";
-import { normalizeAmount } from "@wormhole-foundation/sdk-base"; // Try importing normalizeAmount from sdk-base again
+// No need for normalizeAmount import when using TokenTransfer helper
 import { EvmPlatform } from "@wormhole-foundation/sdk-evm";
 import { SolanaPlatform } from "@wormhole-foundation/sdk-solana";
 import { SuiPlatform } from "@wormhole-foundation/sdk-sui";
-// Removed SolanaWallet/SuiWallet imports, will rely on base Signer type for now
-// Signer adaptation might be needed later based on wallet adapter objects
 
 // Define network and chains
 const NETWORK: Network = "Testnet";
@@ -53,98 +52,85 @@ async function initializeWormholeContext() {
   return wormhole;
 }
 
-// Use the base Signer type. Actual object passed will need `chain` and `address` properties,
-// plus signing methods compatible with the SDK's expectations.
-type SourceSigner = Signer;
+// Use the base Signer type. Actual object passed MUST be adapted from the
+// wallet adapter (e.g., @suiet/wallet-kit, @solana/wallet-adapter-react)
+// to conform to the SDK's Signer interface (chain(), address(), sign() or signAndSend()).
+type AdaptedSigner = Signer;
 
-// Function to bridge tokens (further revised structure)
-export async function bridgeToken(
-  sourceChain: SupportedChain, // Use specific Chain type
-  targetChain: SupportedChain, // Use specific Chain type
+// Function to bridge tokens using the TokenTransfer helper
+export async function bridgeTokenWithHelper(
+  sourceChain: SupportedChain,
+  targetChain: SupportedChain,
   tokenSymbol: TokenSymbol,
-  amount: string, // Amount as a string (e.g., "10.5")
-  sourceSigner: SourceSigner, // Use more specific signer type
-  recipientAddress: string // Keep as string for now, might need ChainAddress later
+  amount: string, // Amount as a string (e.g., "10.5") - TokenTransfer handles normalization
+  sourceSigner: AdaptedSigner, // The adapted signer object
+  recipientAddress: string // Recipient address as string
 ) {
-  console.log(`Bridging ${amount} ${tokenSymbol} from ${sourceChain} to ${targetChain}`);
+  console.log(`Bridging ${amount} ${tokenSymbol} from ${sourceChain} to ${targetChain} using TokenTransfer helper`);
 
   const wh = await initializeWormholeContext();
 
-  // Get chain contexts
-  const sourceChainContext = wh.getChain(sourceChain);
-  const targetChainContext = wh.getChain(targetChain);
-  const sourcePlatform = wh.getPlatform(sourceChain); // Get platform instance
-  const targetPlatform = wh.getPlatform(targetChain); // Get platform instance
-
   const tokenAddress = TESTNET_TOKENS[sourceChain][tokenSymbol];
-  if (!tokenAddress || tokenAddress === "0x...") {
+  if (!tokenAddress || tokenAddress.startsWith("0xPLACEHOLDER")) {
     throw new Error(`Token ${tokenSymbol} address not configured or invalid for ${sourceChain} on Testnet`);
   }
 
-  // Get token details (decimals) - Accessing via platform instance
-  const tokenDetails = await sourcePlatform.getToken(tokenAddress); // Try getToken on platform instance
-  if (!tokenDetails) {
-    throw new Error(`Could not fetch token details for ${tokenSymbol} on ${sourceChain}`);
-  }
-  const decimals = tokenDetails.decimals;
+  // Create TokenId and ChainAddress objects using Wormhole static methods
+  const sourceToken: TokenId = Wormhole.tokenId(sourceChain, tokenAddress);
+  const senderChainAddr: ChainAddress = Wormhole.chainAddress(sourceChain, sourceSigner.address());
+  const destinationChainAddr: ChainAddress = Wormhole.chainAddress(targetChain, recipientAddress);
 
-  // Normalize amount to base units using imported function
-  const normalizedAmt = normalizeAmount(amount, BigInt(decimals)); // Use imported normalizeAmount
-
-
-  // Get the sender address from the signer
-  const senderAddressStr = sourceSigner.address(); // Assuming address() method exists on Signer and returns string
-  const senderNativeAddr = sourcePlatform.parseAddress(senderAddressStr); // Use platform.parseAddress
-
-  // Create ChainAddress objects using the SDK's encoding utilities
-  const sourceTokenNativeAddr = sourcePlatform.parseAddress(tokenAddress); // Use platform.parseAddress
-  const sourceTokenId: TokenId = { chain: sourceChain, address: sourceTokenNativeAddr.toUniversalAddress() }; // Convert to Universal for TokenId
-
-  const targetRecipientNativeAddr = targetPlatform.parseAddress(recipientAddress); // Use platform.parseAddress
-  const targetRecipientChainAddr: ChainAddress = { chain: targetChain, address: targetRecipientNativeAddr.toUniversalAddress() }; // Convert to Universal for ChainAddress
-
-
-  // Get the Token Bridge protocol client for the source chain
-  const tokenBridge = await sourceChainContext.getTokenBridge(); // Get Token Bridge context
-
-  // Initiate transfer using the TokenBridge context
-  const transfer = tokenBridge.transfer(
-    senderNativeAddr.toUniversalAddress(), // Convert sender to UniversalAddress
-    targetRecipientChainAddr,
-    sourceTokenId.address, // Already UniversalAddress in TokenId
-    normalizedAmt
-    // Optional: payload, nativeGasAmount etc.
+  // Create a TokenTransfer object to track the state of the transfer
+  // Amount is passed directly, normalization is handled internally
+  const transfer = await wh.tokenTransfer(
+    sourceToken,
+    amount,
+    senderChainAddr,
+    destinationChainAddr,
+    false, // Automatic delivery set to false (manual)
+    undefined, // No payload
+    undefined // No native gas dropoff requested
   );
 
-  console.log("Created Transfer Request (Generator):", transfer);
+  // You can optionally quote the transfer to check fees, etc.
+  // const quote = await TokenTransfer.quoteTransfer(wh, sourceChain, targetChain, transfer.transfer);
+  // console.log("Quote:", quote);
+  // if (quote.destinationToken.amount < 0) throw new Error("Amount too low to cover fees");
 
-  // Sign and send the transaction(s)
-  // Pass the source ChainContext as the first argument to signSendWait
-  try {
-    const txids = await signSendWait(sourceChainContext, transfer, sourceSigner); // Pass sourceChainContext
-    console.log("Transaction IDs:", txids);
+  console.log("Initiating transfer...");
+  const sourceTxids = await transfer.initiateTransfer(sourceSigner);
+  console.log(`Initiated transfer with source txids: ${sourceTxids}`);
 
-    // TODO: Add logic to wait for VAA and redeem on the target chain
-    // This involves fetching the VAA using the txid and then calling redeem on the target chain's token bridge
+  // For manual transfers, wait for attestation
+  console.log("Waiting for attestation...");
+  const attestIds = await transfer.fetchAttestation(60_000); // 60 second timeout
+  console.log(`Got VAA CIDs: ${attestIds}`);
 
-    return { message: "Bridging transaction sent (VAA fetching and redemption not implemented)", txids };
-  } catch (error) {
-     console.error("Signing or sending failed:", error);
-     throw new Error("Failed to sign or send the bridging transaction.");
-  }
+  // Redeem on the destination chain
+  console.log("Completing transfer...");
+  const destinationTxids = await transfer.completeTransfer(sourceSigner); // Use same signer for redeem? Check docs if dest signer needed
+  console.log(`Completed transfer with destination txids: ${destinationTxids}`);
+
+  return {
+    message: "Bridging process completed (initiated, attested, redeemed).",
+    sourceTxids,
+    vaaCids: attestIds,
+    destinationTxids,
+  };
 }
+
 
 // Example usage (for testing purposes, call from UI later)
 /*
-// NOTE: The Signer objects passed to testBridge MUST conform to the SDK's Signer interface.
-// This likely requires creating wrapper classes/functions around the wallet adapter objects.
-async function testBridge(suiSigner: Signer, solanaSigner: Signer) {
+// NOTE: The Signer objects passed MUST conform to the SDK's Signer interface.
+// This requires creating wrapper classes/functions around the wallet adapter objects.
+async function testBridge(suiSigner: AdaptedSigner, solanaSigner: AdaptedSigner) {
 
   // Example: Solana to Sui
   if (solanaSigner && suiSigner) {
      try {
       const suiRecipient = suiSigner.address(); // Get address via method
-      const result = await bridgeToken(
+      const result = await bridgeTokenWithHelper(
         SOLANA_CHAIN,
         SUI_CHAIN,
         "USDC", // Make sure this token exists and address is correct
@@ -164,7 +150,7 @@ async function testBridge(suiSigner: Signer, solanaSigner: Signer) {
    if (suiSigner && solanaSigner) {
      try {
       const solanaRecipient = solanaSigner.address(); // Get address via method
-      const result = await bridgeToken(
+      const result = await bridgeTokenWithHelper(
         SUI_CHAIN,
         SOLANA_CHAIN,
         "USDC", // Make sure this token exists and address is correct for Sui
@@ -184,6 +170,15 @@ async function testBridge(suiSigner: Signer, solanaSigner: Signer) {
 // 2. **Crucially:** Create wrapper objects/functions that take the wallet adapter object
 //    and expose the `chain`, `address()`, and signing methods (`signTransaction`, etc.)
 //    in the exact way the Wormhole SDK Signer interface expects for each chain.
+//    Example structure:
+//    class SolanaSDKSignerWrapper implements Signer {
+//      constructor(private walletAdapter: SolanaWalletAdapter) {}
+//      chain(): Chain { return "Solana"; }
+//      address(): string { return this.walletAdapter.publicKey?.toBase58() ?? ""; }
+//      async sign(txs: UnsignedTransaction[]): Promise<SignedTx[]> { /* ... implement signing logic ... */ }
+//      // OR
+//      async signAndSend(txs: UnsignedTransaction[]): Promise<TxHash[]> { /* ... implement signAndSend logic ... */ }
+//    }
 // 3. Instantiate these wrappers: const suiSigner = new SuiSDKSignerWrapper(suiWalletAdapter);
-// 4. Call testBridge(suiSigner, solanaSigner) or bridgeToken directly with the wrapped signers.
+// 4. Call testBridge(suiSigner, solanaSigner) or bridgeTokenWithHelper directly with the wrapped signers.
 */
