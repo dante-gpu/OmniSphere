@@ -1,9 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // Added useEffect
 import { useParams } from 'react-router-dom';
-import { 
-  ArrowLeftRight, 
-  Droplets, 
-  TrendingUp, 
+// Removed duplicate useForm import if it existed, ensure it's imported if needed later
+// import { useForm } from 'react-hook-form';
+// import { zodResolver } from '@hookform/resolvers/zod';
+import { Button } from '../components/ui/Button'; // Import Button component
+import {
+  ArrowLeftRight,
+  Droplets,
+  TrendingUp,
   ArrowUpDown,
   Clock,
   ChevronDown,
@@ -15,17 +19,21 @@ import {
   Info,
   ArrowDown
 } from 'lucide-react';
-import { 
-  AreaChart, 
-  Area, 
-  XAxis, 
-  YAxis, 
-  Tooltip, 
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
   ResponsiveContainer,
   CartesianGrid
 } from 'recharts';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
+
+// Import our hook and validation schema
+import { useAddLiquidity } from '../hooks/useAddLiquidity';
+import { addLiquiditySchema, AddLiquidityInput } from '../lib/validations/pool';
 
 dayjs.extend(relativeTime);
 
@@ -62,8 +70,22 @@ const recentTransactions = [
 
 type TabType = 'add' | 'remove' | 'bridge';
 
+// Define a type for our fetched pool data
+interface PoolData {
+  id: string;
+  name: string;
+  onChainId: string;
+  chain: 'sui' | 'solana';
+  token1Symbol: string;
+  token2Symbol: string;
+  token1Decimals: number;
+  token2Decimals: number;
+  // Add other necessary pool details
+}
+
+
 const PoolDetailPage = () => {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>(); // Ensure id is treated as string
   const [activeTab, setActiveTab] = useState<TabType>('add');
   const [token1Amount, setToken1Amount] = useState('');
   const [token2Amount, setToken2Amount] = useState('');
@@ -71,28 +93,121 @@ const PoolDetailPage = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [removePercentage, setRemovePercentage] = useState(0);
 
+  // Instantiate the mutation hook
+  const addLiquidityMutation = useAddLiquidity();
+
+  // State for fetched pool data
+  const [poolData, setPoolData] = useState<PoolData | null>(null);
+  const [isLoadingPool, setIsLoadingPool] = useState(true);
+  const [errorLoadingPool, setErrorLoadingPool] = useState<string | null>(null);
+
+  // Effect to fetch pool data based on id
+  useEffect(() => {
+    if (!id) {
+      setErrorLoadingPool("Pool ID is missing from URL.");
+      setIsLoadingPool(false);
+      return;
+    }
+
+    setIsLoadingPool(true);
+    setErrorLoadingPool(null);
+    setPoolData(null); // Clear previous data
+
+    // Simulate API call
+    const timer = setTimeout(() => {
+      try {
+        let fetchedData: PoolData;
+        if (id === '1') {
+          fetchedData = {
+            id: '1',
+            name: 'SUI-USDC',
+            onChainId: 'SUI_POOL_OBJECT_ID_PLACEHOLDER_1',
+            chain: 'sui',
+            token1Symbol: 'SUI',
+            token2Symbol: 'USDC',
+            token1Decimals: 9,
+            token2Decimals: 6,
+          };
+        } else if (id === '2') {
+          fetchedData = {
+            id: '2',
+            name: 'SOL-USDT',
+            onChainId: 'SOL_POOL_PDA_PLACEHOLDER_2',
+            chain: 'solana',
+            token1Symbol: 'SOL',
+            token2Symbol: 'USDT',
+            token1Decimals: 9,
+            token2Decimals: 6,
+          };
+        } else {
+          // Handle unknown ID - throw an error or set specific state
+          throw new Error(`Pool with ID ${id} not found.`);
+        }
+        setPoolData(fetchedData);
+      } catch (error) {
+         console.error("Error fetching pool data:", error);
+         setErrorLoadingPool(error instanceof Error ? error.message : "Failed to load pool data.");
+      } finally {
+         setIsLoadingPool(false);
+      }
+    }, 500); // Simulate loading time
+
+    return () => clearTimeout(timer);
+  }, [id]); // Re-fetch if id changes
+
+
+  // Mock pool stats (should eventually use poolData)
   const poolStats = {
     tvl: '$5.2M',
     volume24h: '$1.2M',
     apy: '15.2%',
     fee: '0.3%',
-    token1Reserve: '1.2M SUI',
-    token2Reserve: '2.4M USDC',
-    ratio: '1 SUI = 2 USDC',
+    token1Reserve: '1.2M SUI', // Should use poolData.token1Symbol
+    token2Reserve: '2.4M USDC', // Should use poolData.token2Symbol
+    ratio: '1 SUI = 2 USDC', // Should be calculated
     yourLiquidity: {
       lpTokens: '1000',
       share: '0.5%',
       value: '$25,000',
-      token1Amount: '10,000 SUI',
-      token2Amount: '20,000 USDC'
+      token1Amount: '10,000 SUI', // Should use poolData.token1Symbol
+      token2Amount: '20,000 USDC' // Should use poolData.token2Symbol
     }
   };
 
   const handleRemovePercentageChange = (value: number) => {
     setRemovePercentage(value);
-    // Calculate token amounts based on percentage
-    // This would be replaced with actual calculations
+    // TODO: Calculate token amounts based on percentage
   };
+
+  // Handle form submission for adding liquidity
+  const handleAddLiquiditySubmit = async () => {
+    if (!poolData) {
+      alert("Pool data is not available.");
+      return;
+    }
+
+    const dataToValidate: AddLiquidityInput = {
+      chainId: poolData.chain,
+      poolId: poolData.onChainId,
+      token1Amount: token1Amount,
+      token2Amount: token2Amount,
+      slippageTolerance: slippageTolerance,
+    };
+
+    const validationResult = addLiquiditySchema.safeParse(dataToValidate);
+
+    if (!validationResult.success) {
+      // TODO: Show validation errors more gracefully
+      console.error("Validation errors:", validationResult.error.flatten().fieldErrors);
+      alert("Please check your input values.");
+      return;
+    }
+
+    console.log("Submitting data:", validationResult.data);
+    addLiquidityMutation.mutate(validationResult.data);
+  };
+
+  // --- Render Functions ---
 
   const renderSettings = () => (
     <div className="p-4 bg-neutral-50 rounded-xl mb-4">
@@ -127,6 +242,7 @@ const PoolDetailPage = () => {
               onChange={(e) => setSlippageTolerance(e.target.value)}
               className="input w-24 text-sm"
               placeholder="Custom"
+              step="0.1"
             />
           </div>
         </div>
@@ -135,6 +251,13 @@ const PoolDetailPage = () => {
   );
 
   const renderTabContent = () => {
+    if (isLoadingPool) {
+      return <div className="text-center p-8">Loading pool details...</div>;
+    }
+    if (errorLoadingPool || !poolData) {
+      return <div className="text-center p-8 text-red-600">Error loading pool details.</div>;
+    }
+
     switch (activeTab) {
       case 'add':
         return (
@@ -152,10 +275,11 @@ const PoolDetailPage = () => {
             <div className="p-4 border border-neutral-200 rounded-xl">
               <div className="flex justify-between mb-2">
                 <label className="text-sm font-medium text-neutral-500">
-                  SUI Amount
+                  {poolData.token1Symbol} Amount
                 </label>
                 <div className="text-sm text-neutral-500">
-                  Balance: 1,234.56 SUI
+                  {/* TODO: Fetch and display actual balance */}
+                  Balance: 1,234.56 {poolData.token1Symbol}
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -179,10 +303,11 @@ const PoolDetailPage = () => {
             <div className="p-4 border border-neutral-200 rounded-xl">
               <div className="flex justify-between mb-2">
                 <label className="text-sm font-medium text-neutral-500">
-                  USDC Amount
+                  {poolData.token2Symbol} Amount
                 </label>
                 <div className="text-sm text-neutral-500">
-                  Balance: 5,000 USDC
+                  {/* TODO: Fetch and display actual balance */}
+                  Balance: 5,000 {poolData.token2Symbol}
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -205,18 +330,24 @@ const PoolDetailPage = () => {
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <span>LP Tokens</span>
-                  <span className="font-medium">0.00</span>
+                  <span className="font-medium">0.00</span> {/* TODO: Calculate */}
                 </div>
                 <div className="flex justify-between">
                   <span>Share of Pool</span>
-                  <span className="font-medium">0.00%</span>
+                  <span className="font-medium">0.00%</span> {/* TODO: Calculate */}
                 </div>
               </div>
             </div>
 
-            <button className="btn-primary w-full">
-              Add Liquidity
-            </button>
+            <Button
+              variant="primary"
+              className="w-full"
+              onClick={handleAddLiquiditySubmit}
+              isLoading={addLiquidityMutation.isLoading}
+              disabled={addLiquidityMutation.isLoading}
+            >
+              {addLiquidityMutation.isLoading ? 'Adding...' : 'Add Liquidity'}
+            </Button>
           </div>
         );
 
@@ -237,17 +368,17 @@ const PoolDetailPage = () => {
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-medium">Your Position</h3>
                 <div className="text-sm text-neutral-500">
-                  {poolStats.yourLiquidity.lpTokens} LP Tokens
+                  {poolStats.yourLiquidity.lpTokens} LP Tokens {/* TODO: Use actual data */}
                 </div>
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-neutral-600">Your Share</span>
-                  <span>{poolStats.yourLiquidity.share}</span>
+                  <span>{poolStats.yourLiquidity.share}</span> {/* TODO: Use actual data */}
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-neutral-600">Value</span>
-                  <span>{poolStats.yourLiquidity.value}</span>
+                  <span>{poolStats.yourLiquidity.value}</span> {/* TODO: Use actual data */}
                 </div>
               </div>
             </div>
@@ -262,130 +393,97 @@ const PoolDetailPage = () => {
                 max="100"
                 value={removePercentage}
                 onChange={(e) => handleRemovePercentageChange(Number(e.target.value))}
-                className="w-full h-2 bg-neutral-200 rounded-lg appearance-none cursor-pointer"
+                className="w-full h-2 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-primary"
               />
               <div className="flex justify-between mt-2">
-                <button
-                  onClick={() => handleRemovePercentageChange(25)}
-                  className="px-3 py-1 text-sm rounded-lg hover:bg-neutral-50"
-                >
-                  25%
-                </button>
-                <button
-                  onClick={() => handleRemovePercentageChange(50)}
-                  className="px-3 py-1 text-sm rounded-lg hover:bg-neutral-50"
-                >
-                  50%
-                </button>
-                <button
-                  onClick={() => handleRemovePercentageChange(75)}
-                  className="px-3 py-1 text-sm rounded-lg hover:bg-neutral-50"
-                >
-                  75%
-                </button>
-                <button
-                  onClick={() => handleRemovePercentageChange(100)}
-                  className="px-3 py-1 text-sm rounded-lg hover:bg-neutral-50"
-                >
-                  Max
-                </button>
+                {[0, 25, 50, 75, 100].map(val => (
+                   <button
+                     key={val}
+                     onClick={() => handleRemovePercentageChange(val)}
+                     className={`px-3 py-1 text-sm rounded-lg hover:bg-neutral-100 ${removePercentage === val ? 'text-primary font-medium' : ''}`}
+                   >
+                     {val}%
+                   </button>
+                ))}
               </div>
             </div>
 
             <div className="p-4 bg-neutral-50 rounded-xl">
               <div className="flex items-center justify-between mb-4">
-                <span className="text-neutral-600">You will receive:</span>
+                <span className="text-neutral-600">You will receive (estimated):</span>
                 <Info size={16} className="text-neutral-400" />
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between">
-                  <span>SUI</span>
-                  <span className="font-medium">{poolStats.yourLiquidity.token1Amount}</span>
+                  <span>{poolData.token1Symbol}</span>
+                  <span className="font-medium">{poolStats.yourLiquidity.token1Amount}</span> {/* TODO: Calculate based on percentage */}
                 </div>
                 <div className="flex justify-between">
-                  <span>USDC</span>
-                  <span className="font-medium">{poolStats.yourLiquidity.token2Amount}</span>
+                  <span>{poolData.token2Symbol}</span>
+                  <span className="font-medium">{poolStats.yourLiquidity.token2Amount}</span> {/* TODO: Calculate based on percentage */}
                 </div>
               </div>
             </div>
 
-            <button className="btn-primary w-full">
+            <Button variant="primary" className="w-full"> {/* TODO: Add onClick handler */}
               Remove Liquidity
-            </button>
+            </Button>
           </div>
         );
 
       case 'bridge':
         return (
           <div className="space-y-4">
+            {/* TODO: Implement Bridge UI and Logic */}
+            <p className="text-center text-neutral-500 p-4">Bridge functionality coming soon.</p>
+            {/*
             <div className="p-4 border border-neutral-200 rounded-xl">
-              <div className="flex justify-between items-center mb-4">
-                <span className="font-medium">From Chain</span>
-                <select className="input w-40">
-                  <option>Sui</option>
-                  <option>Solana</option>
-                </select>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="font-medium">To Chain</span>
-                <select className="input w-40">
-                  <option>Solana</option>
-                  <option>Sui</option>
-                </select>
-              </div>
+              ... From/To Chain selection ...
             </div>
-
             <div className="p-4 border border-neutral-200 rounded-xl">
-              <label className="block text-sm font-medium text-neutral-500 mb-2">
-                LP Token Amount
-              </label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  className="input flex-1"
-                  placeholder="0.00"
-                />
-                <button className="btn-outline px-4">MAX</button>
-              </div>
+              ... LP Token Amount input ...
             </div>
-
             <div className="p-4 bg-neutral-50 rounded-xl">
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-neutral-600">Bridge Details</span>
-                <Info size={16} className="text-neutral-400" />
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Bridge Fee</span>
-                  <span>0.1%</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Estimated Time</span>
-                  <span>2-5 minutes</span>
-                </div>
-              </div>
+              ... Bridge Details ...
             </div>
-
-            <button className="btn-primary w-full">
+            <Button variant="primary" className="w-full">
               Bridge Liquidity
-            </button>
+            </Button>
+            */}
           </div>
         );
+      default:
+         return null; // Should not happen
     }
   };
 
+  // --- Main Component Return ---
+
+  // Display loading state for the whole page until pool data is fetched
+  if (isLoadingPool) {
+     return <div className="container mx-auto px-4 py-8 text-center">Loading pool details...</div>;
+  }
+
+  // Display error state if loading failed
+  if (errorLoadingPool || !poolData) {
+     return <div className="container mx-auto px-4 py-8 text-center text-red-600">Error loading pool details: {errorLoadingPool || `Pool ID ${id} not found.`}</div>;
+  }
+
+  // Render page content once data is loaded
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Pool Header */}
       <div className="bg-white rounded-xl shadow-card p-8 mb-8">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold mb-2">SUI-USDC Pool</h1>
-            <p className="text-neutral-600">Cross-chain Liquidity Pool</p>
+            <h1 className="text-3xl font-bold mb-2">{poolData.name} Pool</h1> {/* Dynamic Name */}
+            <p className="text-neutral-600">
+               {poolData.chain === 'sui' ? 'Sui' : poolData.chain === 'solana' ? 'Solana' : 'Unknown Chain'} Liquidity Pool {/* Dynamic Chain */}
+            </p>
           </div>
           <div className="flex items-center gap-4">
             <div className="px-4 py-2 bg-green-100 text-green-800 rounded-full text-sm font-medium">
-              Active
+              Active {/* TODO: Make dynamic */}
             </div>
             <button className="btn-outline">
               Share <ExternalLink size={16} className="ml-2" />
@@ -393,6 +491,7 @@ const PoolDetailPage = () => {
           </div>
         </div>
 
+        {/* Stats - Use poolStats (currently mock, should be updated with fetched data) */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="bg-neutral-50 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-2">
@@ -521,16 +620,16 @@ const PoolDetailPage = () => {
               <h3 className="font-medium mb-4">Pool Information</h3>
               <div className="space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-neutral-600">SUI Reserve</span>
-                  <span>{poolStats.token1Reserve}</span>
+                  <span className="text-neutral-600">{poolData.token1Symbol} Reserve</span> {/* Dynamic */}
+                  <span>{poolStats.token1Reserve}</span> {/* TODO: Use actual data */}
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-neutral-600">USDC Reserve</span>
-                  <span>{poolStats.token2Reserve}</span>
+                  <span className="text-neutral-600">{poolData.token2Symbol} Reserve</span> {/* Dynamic */}
+                  <span>{poolStats.token2Reserve}</span> {/* TODO: Use actual data */}
                 </div>
                 <div className="flex justify-between">
                   <span className="text-neutral-600">Exchange Rate</span>
-                  <span>{poolStats.ratio}</span>
+                  <span>{poolStats.ratio}</span> {/* TODO: Calculate */}
                 </div>
               </div>
             </div>

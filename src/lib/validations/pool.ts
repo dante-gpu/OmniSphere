@@ -1,6 +1,11 @@
 import { z } from 'zod';
 
+// Define supported chain IDs
+const ChainIdEnum = z.enum(['sui', 'solana']); // Add more chains as needed
+
 export const addLiquiditySchema = z.object({
+  chainId: ChainIdEnum, // Added chainId
+  poolId: z.string().min(1, 'Pool ID is required'), // Added poolId
   token1Amount: z
     .string()
     .min(1, 'Amount is required')
