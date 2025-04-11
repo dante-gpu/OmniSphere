@@ -6,8 +6,7 @@ import { Card } from '../components/ui/Card';
 import { TokenSelect } from '../components/forms/TokenSelect';
 import { TokenInput } from '../components/forms/TokenInput';
 import { Dropdown } from '../components/ui/Dropdown';
-// TODO: Import useCreatePool hook once created
-// import { useCreatePool } from '../hooks/useCreatePool';
+import { useCreatePool } from '../hooks/useCreatePool'; // Import the hook
 
 // Define types needed for the form
 type ChainOption = 'sui' | 'solana';
@@ -40,8 +39,8 @@ const CreatePoolPage = () => {
   const [slippageTolerance, setSlippageTolerance] = useState('0.5');
   const [showSettings, setShowSettings] = useState(false);
 
-  // TODO: Instantiate the mutation hook
-  // const createPoolMutation = useCreatePool();
+  // Instantiate the mutation hook
+  const createPoolMutation = useCreatePool();
 
   // Define available tokens based on selected chain
   const availableTokens: Token[] = (selectedChain === 'sui'
@@ -60,29 +59,29 @@ const CreatePoolPage = () => {
       return;
     }
 
-    console.log('DEMO: Submitting Create Pool Data:', {
+    const dataToSubmit = {
       chainId: selectedChain,
       token1Symbol: token1.symbol, // Send only symbol
       token2Symbol: token2.symbol, // Send only symbol
       token1Amount: token1Amount,
       token2Amount: token2Amount,
       slippageTolerance: slippageTolerance,
+    };
+
+    console.log('DEMO: Submitting Create Pool Data:', dataToSubmit);
+
+    // Call the actual mutation
+    createPoolMutation.mutate(dataToSubmit, {
+       onSuccess: () => {
+         // Optional: Navigate away after successful simulation
+         // navigate('/pools');
+         alert('DEMO: Pool creation initiated! Check console and wallet for prompts (simulated).');
+       },
+       onError: (error) => {
+         // Error is already handled by the hook's onError, but you could add specific UI feedback here
+         console.error("Mutation failed in component:", error);
+       }
     });
-
-    // TODO: Call the actual mutation
-    // createPoolMutation.mutate({
-    //   chainId: selectedChain,
-    //   token1Symbol: token1.symbol,
-    //   token2Symbol: token2.symbol,
-    //   token1Amount: token1Amount,
-    //   token2Amount: token2Amount,
-    //   slippageTolerance: slippageTolerance,
-    // });
-
-    // Simulate success for demo
-    alert('DEMO: Pool creation initiated! Check console and wallet for prompts (simulated).');
-    // Optionally navigate away after submission attempt
-    // navigate('/pools');
   };
 
   const renderSettings = () => (
@@ -171,7 +170,6 @@ const CreatePoolPage = () => {
                  tokens={availableTokens.filter(t => t.symbol !== token2?.symbol)} // Exclude selected token 2
                  value={token1 ?? { symbol: 'Select', name: 'Select Token 1', icon: '' }} // Provide default object
                  onChange={setToken1} // onChange expects (token: Token) => void
-                 // Removed placeholder prop
                  disabled={!selectedChain}
               />
             </div>
@@ -183,7 +181,6 @@ const CreatePoolPage = () => {
                  tokens={availableTokens.filter(t => t.symbol !== token1?.symbol)} // Exclude selected token 1
                  value={token2 ?? { symbol: 'Select', name: 'Select Token 2', icon: '' }} // Provide default object
                  onChange={setToken2}
-                 // Removed placeholder prop
                  disabled={!selectedChain}
               />
             </div>
@@ -202,7 +199,6 @@ const CreatePoolPage = () => {
                   onChange={setToken1Amount}
                   symbol={token1?.symbol} // Pass symbol for balance display
                   balance="0.00" // TODO: Fetch real balance
-                  // Removed placeholder prop, input already has one internally
                   tokenIcon={token1?.icon} // Pass icon URL
                   disabled={!token1} // Disable if token not selected
                />
@@ -212,7 +208,6 @@ const CreatePoolPage = () => {
                   onChange={setToken2Amount}
                   symbol={token2?.symbol} // Pass symbol for balance display
                   balance="0.00" // TODO: Fetch real balance
-                  // Removed placeholder prop, input already has one internally
                   tokenIcon={token2?.icon} // Pass icon URL
                   disabled={!token2} // Disable if token not selected
                />
@@ -236,12 +231,10 @@ const CreatePoolPage = () => {
             variant="primary"
             className="w-full"
             onClick={handleCreatePoolSubmit}
-            // isLoading={createPoolMutation.isLoading} // TODO: Uncomment when hook is ready
-            // disabled={createPoolMutation.isLoading || !token1 || !token2 || !token1Amount || !token2Amount} // TODO: Uncomment and refine disabled logic
-            disabled={!token1 || !token2 || !token1Amount || !token2Amount} // Basic disabled logic for demo
+            isLoading={createPoolMutation.isLoading} // Use hook's loading state
+            disabled={createPoolMutation.isLoading || !token1 || !token2 || !token1Amount || !token2Amount} // Use hook's loading state and basic validation
           >
-             {/* {createPoolMutation.isLoading ? 'Creating Pool...' : 'Create Pool'} // TODO: Uncomment */}
-             Create Pool (Demo)
+             {createPoolMutation.isLoading ? 'Creating Pool...' : 'Create Pool (Demo)'}
           </Button>
 
           {/* Info Box */}
