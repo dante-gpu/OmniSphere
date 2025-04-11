@@ -966,6 +966,18 @@ fn process_liquidity_removal(
   </tr>
 </table>
 
+### 5.6 Deployment Information
+
+The Solana `liquidity_pool` program has been deployed to the **Solana Devnet**.
+
+| Detail              | Value                                           |
+|---------------------|-------------------------------------------------|
+| **Program ID**      | `AGHWA8Ff6ZPzFZxjHsH7CRFiwXSucXLhbZ3SUQYYLNoZ` |
+| **Network**         | Solana Devnet                                   |
+| **Upgrade Authority**| `Ck1aXzJJBd21mb5cWPfUJznin6MFinvu9oVt91be3863` |
+
+You can explore the program using a Solana explorer like [Solana Explorer](https://explorer.solana.com/?cluster=devnet) with the Program ID above.
+
 ---
 
 ## 🌉 6. Cross-Chain Bridge Mechanism
