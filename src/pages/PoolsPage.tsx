@@ -22,6 +22,7 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Dropdown } from '../components/ui/Dropdown';
 import { Badge } from '../components/ui/Badge';
+import { PlusCircle } from 'lucide-react'; // Import PlusCircle icon
 import { Tooltip } from '../components/ui/Tooltip';
 import { Modal } from '../components/ui/Modal';
 import { Alert } from '../components/ui/Alert';
@@ -464,6 +465,12 @@ const PoolsPage = () => {
           >
             Filters
           </Button>
+           {/* Add Liquidity Button */}
+           <Link to="/pools/new"> {/* TODO: Define this route later */}
+             <Button variant="primary" leftIcon={<PlusCircle size={20} />}>
+               Add Liquidity
+             </Button>
+           </Link>
         </div>
       </div>
 
