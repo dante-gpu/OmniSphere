@@ -23,6 +23,7 @@ import SettingsPage from './pages/settings/SettingsPage';
 import NotificationsPage from './pages/settings/NotificationsPage';
 import SecurityPage from './pages/settings/SecurityPage';
 import SwapPage from './pages/SwapPage';
+import CreatePoolPage from './pages/CreatePoolPage'; // Import the new page
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -70,6 +71,7 @@ function App() {
                 <Route path="/settings/notifications" element={<NotificationsPage />} />
                 <Route path="/settings/security" element={<SecurityPage />} />
                 <Route path="/swap" element={<SwapPage />} />
+                <Route path="/pools/new" element={<CreatePoolPage />} /> {/* Add route for creating pool */}
               </Routes>
             </main>
             <Footer />
