@@ -8,56 +8,60 @@ import { TokenInput } from '../components/forms/TokenInput';
 import { Dropdown } from '../components/ui/Dropdown';
 import { useCreatePool } from '../hooks/useCreatePool'; // Import the hook
 
+// Import available icons from src/icons
+import suiIcon from '../icons/Sui Logo.webp';
+import solIcon from '../icons/Solana Logo.svg';
+import usdcIcon from '../icons/USDC Logo.png';
+import usdtIcon from '../icons/Tether USDT Logo.png';
+// Define a placeholder for missing icons
+const placeholderIcon = '/placeholder-icon.png'; // Or path to a generic icon in public/
+
 // Define types needed for the form
 type ChainOption = 'sui' | 'solana';
 
 // Define Token interface matching TokenSelect component
 interface Token {
   symbol: string;
-  name: string; // Added name
-  icon: string; // Added icon URL
+  name: string;
+  icon: string; // Keep as string (path or imported variable)
 }
 
-// Mock token data (replace with actual data source) using local paths
-// IMPORTANT: User needs to place these icon files in the /public/icons/ directory
+// Mock token data using imported icons and placeholders
 const MOCK_TOKENS: { [key: string]: Token } = {
-  SUI: { symbol: 'SUI', name: 'Sui', icon: '/icons/sui.png' },
-  USDC: { symbol: 'USDC', name: 'USD Coin', icon: '/icons/usdc.png' },
-  USDT: { symbol: 'USDT', name: 'Tether', icon: '/icons/usdt.png' },
-  WETH: { symbol: 'WETH', name: 'Wrapped Ether', icon: '/icons/eth.png' }, // Assuming eth.png for WETH
-  SOL: { symbol: 'SOL', name: 'Solana', icon: '/icons/sol.png' },
-  RAY: { symbol: 'RAY', name: 'Raydium', icon: '/icons/ray.png' },
-  SRM: { symbol: 'SRM', name: 'Serum', icon: '/icons/srm.png' },
-  // Add other tokens used in PoolsPage if needed (BTC, APT, WMATIC, AVAX, BONK, ORCA)
-  BTC: { symbol: 'BTC', name: 'Bitcoin', icon: '/icons/btc.png' },
-  APT: { symbol: 'APT', name: 'Aptos', icon: '/icons/apt.png' },
-  WMATIC: { symbol: 'WMATIC', name: 'Wrapped Matic', icon: '/icons/wmatic.png' },
-  AVAX: { symbol: 'AVAX', name: 'Avalanche', icon: '/icons/avax.png' },
-  BONK: { symbol: 'BONK', name: 'Bonk', icon: '/icons/bonk.png' },
-  ORCA: { symbol: 'ORCA', name: 'Orca', icon: '/icons/orca.png' },
+  SUI: { symbol: 'SUI', name: 'Sui', icon: suiIcon },
+  USDC: { symbol: 'USDC', name: 'USD Coin', icon: usdcIcon },
+  USDT: { symbol: 'USDT', name: 'Tether', icon: usdtIcon },
+  WETH: { symbol: 'WETH', name: 'Wrapped Ether', icon: placeholderIcon }, // Missing
+  SOL: { symbol: 'SOL', name: 'Solana', icon: solIcon },
+  RAY: { symbol: 'RAY', name: 'Raydium', icon: placeholderIcon }, // Missing
+  SRM: { symbol: 'SRM', name: 'Serum', icon: placeholderIcon }, // Missing
+  BTC: { symbol: 'BTC', name: 'Bitcoin', icon: placeholderIcon }, // Missing
+  APT: { symbol: 'APT', name: 'Aptos', icon: placeholderIcon }, // Missing
+  WMATIC: { symbol: 'WMATIC', name: 'Wrapped Matic', icon: placeholderIcon }, // Missing
+  AVAX: { symbol: 'AVAX', name: 'Avalanche', icon: placeholderIcon }, // Missing
+  BONK: { symbol: 'BONK', name: 'Bonk', icon: placeholderIcon }, // Missing
+  ORCA: { symbol: 'ORCA', name: 'Orca', icon: placeholderIcon }, // Missing
 };
 
 const CreatePoolPage = () => {
   const navigate = useNavigate();
   const [selectedChain, setSelectedChain] = useState<ChainOption>('sui');
-  const [token1, setToken1] = useState<Token | null>(null); // State holds Token object or null
-  const [token2, setToken2] = useState<Token | null>(null); // State holds Token object or null
+  const [token1, setToken1] = useState<Token | null>(null);
+  const [token2, setToken2] = useState<Token | null>(null);
   const [token1Amount, setToken1Amount] = useState('');
   const [token2Amount, setToken2Amount] = useState('');
   const [slippageTolerance, setSlippageTolerance] = useState('0.5');
   const [showSettings, setShowSettings] = useState(false);
 
-  // Instantiate the mutation hook
   const createPoolMutation = useCreatePool();
 
   // Define available tokens based on selected chain
   const availableTokens: Token[] = (selectedChain === 'sui'
-    ? ['SUI', 'USDC', 'USDT', 'WETH']
-    : ['SOL', 'USDC', 'USDT', 'RAY', 'SRM']
-  ).map(symbol => MOCK_TOKENS[symbol]).filter(Boolean); // Get full Token objects
+    ? ['SUI', 'USDC', 'USDT', 'WETH'] // Example Sui tokens
+    : ['SOL', 'USDC', 'USDT', 'RAY', 'SRM'] // Example Solana tokens
+  ).map(symbol => MOCK_TOKENS[symbol]).filter(Boolean);
 
   const handleCreatePoolSubmit = () => {
-    // Basic validation
     if (!token1 || !token2 || !token1Amount || !token2Amount || !selectedChain) {
       alert('Please select both tokens, enter amounts, and select a chain.');
       return;
@@ -69,8 +73,8 @@ const CreatePoolPage = () => {
 
     const dataToSubmit = {
       chainId: selectedChain,
-      token1Symbol: token1.symbol, // Send only symbol
-      token2Symbol: token2.symbol, // Send only symbol
+      token1Symbol: token1.symbol,
+      token2Symbol: token2.symbol,
       token1Amount: token1Amount,
       token2Amount: token2Amount,
       slippageTolerance: slippageTolerance,
@@ -78,15 +82,11 @@ const CreatePoolPage = () => {
 
     console.log('DEMO: Submitting Create Pool Data:', dataToSubmit);
 
-    // Call the actual mutation
     createPoolMutation.mutate(dataToSubmit, {
        onSuccess: () => {
-         // Optional: Navigate away after successful simulation
-         // navigate('/pools');
          alert('DEMO: Pool creation initiated! Check console and wallet for prompts (simulated).');
        },
        onError: (error) => {
-         // Error is already handled by the hook's onError, but you could add specific UI feedback here
          console.error("Mutation failed in component:", error);
        }
     });
@@ -129,7 +129,6 @@ const CreatePoolPage = () => {
             />
           </div>
         </div>
-        {/* Add other settings like deadline if needed */}
       </div>
     </div>
   );
@@ -159,7 +158,6 @@ const CreatePoolPage = () => {
               value={selectedChain}
               onChange={(value) => {
                  setSelectedChain(value as ChainOption);
-                 // Reset token selections when chain changes
                  setToken1(null);
                  setToken2(null);
               }}
@@ -173,11 +171,10 @@ const CreatePoolPage = () => {
               <label className="block text-sm font-medium text-neutral-700 mb-2">
                 Token 1
               </label>
-              {/* Pass the full Token object or a default/placeholder if null */}
               <TokenSelect
-                 tokens={availableTokens.filter(t => t.symbol !== token2?.symbol)} // Exclude selected token 2
-                 value={token1 ?? { symbol: 'Select', name: 'Select Token 1', icon: '' }} // Provide default object
-                 onChange={setToken1} // onChange expects (token: Token) => void
+                 tokens={availableTokens.filter(t => t.symbol !== token2?.symbol)}
+                 value={token1 ?? { symbol: 'Select', name: 'Select Token 1', icon: placeholderIcon }} // Use placeholder
+                 onChange={setToken1}
                  disabled={!selectedChain}
               />
             </div>
@@ -186,8 +183,8 @@ const CreatePoolPage = () => {
                 Token 2
               </label>
               <TokenSelect
-                 tokens={availableTokens.filter(t => t.symbol !== token1?.symbol)} // Exclude selected token 1
-                 value={token2 ?? { symbol: 'Select', name: 'Select Token 2', icon: '' }} // Provide default object
+                 tokens={availableTokens.filter(t => t.symbol !== token1?.symbol)}
+                 value={token2 ?? { symbol: 'Select', name: 'Select Token 2', icon: placeholderIcon }} // Use placeholder
                  onChange={setToken2}
                  disabled={!selectedChain}
               />
@@ -200,24 +197,23 @@ const CreatePoolPage = () => {
               Initial Liquidity Amounts
             </label>
             <div className="space-y-4">
-               {/* Pass props matching TokenInputProps */}
                <TokenInput
                   label={token1 ? `${token1.symbol} Amount` : 'Token 1 Amount'}
                   value={token1Amount}
                   onChange={setToken1Amount}
-                  symbol={token1?.symbol} // Pass symbol for balance display
+                  symbol={token1?.symbol}
                   balance="0.00" // TODO: Fetch real balance
-                  tokenIcon={token1?.icon} // Pass icon URL
-                  disabled={!token1} // Disable if token not selected
+                  tokenIcon={token1?.icon ?? placeholderIcon} // Use placeholder
+                  disabled={!token1}
                />
                <TokenInput
                   label={token2 ? `${token2.symbol} Amount` : 'Token 2 Amount'}
                   value={token2Amount}
                   onChange={setToken2Amount}
-                  symbol={token2?.symbol} // Pass symbol for balance display
+                  symbol={token2?.symbol}
                   balance="0.00" // TODO: Fetch real balance
-                  tokenIcon={token2?.icon} // Pass icon URL
-                  disabled={!token2} // Disable if token not selected
+                  tokenIcon={token2?.icon ?? placeholderIcon} // Use placeholder
+                  disabled={!token2}
                />
             </div>
           </div>
@@ -239,8 +235,8 @@ const CreatePoolPage = () => {
             variant="primary"
             className="w-full"
             onClick={handleCreatePoolSubmit}
-            isLoading={createPoolMutation.isLoading} // Use hook's loading state
-            disabled={createPoolMutation.isLoading || !token1 || !token2 || !token1Amount || !token2Amount} // Use hook's loading state and basic validation
+            isLoading={createPoolMutation.isLoading}
+            disabled={createPoolMutation.isLoading || !token1 || !token2 || !token1Amount || !token2Amount}
           >
              {createPoolMutation.isLoading ? 'Creating Pool...' : 'Create Pool (Demo)'}
           </Button>
