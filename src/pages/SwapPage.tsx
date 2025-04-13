@@ -28,7 +28,11 @@ import ethIcon from '../icons/eth.png'; // Added
 import btcIcon from '../icons/btc.png'; // Added
 import avaxIcon from '../icons/avax.png'; // Added
 import bonkIcon from '../icons/bonk.png'; // Added
-import wmaticIcon from '../icons/wmatic.png'; // Assuming this exists based on PoolsPage
+import wmaticIcon from '../icons/wmatic.png'; // Added
+import aptIcon from '../icons/apt.png'; // Added
+import rayIcon from '../icons/ray.png'; // Added
+import srmIcon from '../icons/srm.png'; // Added
+import orcaIcon from '../icons/orca.png'; // Added
 // Define a placeholder for missing icons (if needed elsewhere, keep consistent)
 const placeholderIcon = '/placeholder-icon.png'; // Or path to a generic icon in public/
 
@@ -107,6 +111,34 @@ const AVAILABLE_TOKENS: TokenInfo[] = [
     icon: wmaticIcon, // Use imported icon
     decimals: 8, // Verify wrapped MATIC decimals
     type: '0xWORMHOLE_PLACEHOLDER::wmatic::WMATIC' // Replace with actual wrapped MATIC type
+  },
+   {
+    symbol: 'APT', // Assuming wrapped APT on Sui
+    name: 'Aptos (Wormhole)',
+    icon: aptIcon, // Use imported icon
+    decimals: 8, // Verify wrapped APT decimals
+    type: '0xWORMHOLE_PLACEHOLDER::apt::APT' // Replace with actual wrapped APT type
+  },
+   {
+    symbol: 'RAY', // Assuming wrapped RAY on Sui
+    name: 'Raydium (Wormhole)',
+    icon: rayIcon, // Use imported icon
+    decimals: 6, // Verify wrapped RAY decimals
+    type: '0xWORMHOLE_PLACEHOLDER::ray::RAY' // Replace with actual wrapped RAY type
+  },
+   {
+    symbol: 'SRM', // Assuming wrapped SRM on Sui
+    name: 'Serum (Wormhole)',
+    icon: srmIcon, // Use imported icon
+    decimals: 6, // Verify wrapped SRM decimals
+    type: '0xWORMHOLE_PLACEHOLDER::srm::SRM' // Replace with actual wrapped SRM type
+  },
+   {
+    symbol: 'ORCA', // Assuming wrapped ORCA on Sui
+    name: 'Orca (Wormhole)',
+    icon: orcaIcon, // Use imported icon
+    decimals: 6, // Verify wrapped ORCA decimals
+    type: '0xWORMHOLE_PLACEHOLDER::orca::ORCA' // Replace with actual wrapped ORCA type
   },
   // TODO: Add Solana native tokens if needed, potentially differentiating by chain context
   // {

@@ -17,7 +17,11 @@ import ethIcon from '../icons/eth.png'; // Added
 import btcIcon from '../icons/btc.png'; // Added
 import avaxIcon from '../icons/avax.png'; // Added
 import bonkIcon from '../icons/bonk.png'; // Added
-import wmaticIcon from '../icons/wmatic.png'; // Assuming this exists based on PoolsPage
+import wmaticIcon from '../icons/wmatic.png'; // Added
+import aptIcon from '../icons/apt.png'; // Added
+import rayIcon from '../icons/ray.png'; // Added
+import srmIcon from '../icons/srm.png'; // Added
+import orcaIcon from '../icons/orca.png'; // Added
 // Define a placeholder for missing icons
 const placeholderIcon = '/placeholder-icon.png'; // Or path to a generic icon in public/
 
@@ -38,14 +42,14 @@ const MOCK_TOKENS: { [key: string]: Token } = {
   USDT: { symbol: 'USDT', name: 'Tether', icon: usdtIcon },
   WETH: { symbol: 'WETH', name: 'Wrapped Ether', icon: ethIcon }, // Updated
   SOL: { symbol: 'SOL', name: 'Solana', icon: solIcon },
-  RAY: { symbol: 'RAY', name: 'Raydium', icon: placeholderIcon }, // Missing - Keep placeholder
-  SRM: { symbol: 'SRM', name: 'Serum', icon: placeholderIcon }, // Missing - Keep placeholder
+  RAY: { symbol: 'RAY', name: 'Raydium', icon: rayIcon }, // Updated
+  SRM: { symbol: 'SRM', name: 'Serum', icon: srmIcon }, // Updated
   BTC: { symbol: 'BTC', name: 'Bitcoin', icon: btcIcon }, // Updated
-  APT: { symbol: 'APT', name: 'Aptos', icon: placeholderIcon }, // Missing - Keep placeholder
-  WMATIC: { symbol: 'WMATIC', name: 'Wrapped Matic', icon: wmaticIcon }, // Updated (assuming wmatic.png)
+  APT: { symbol: 'APT', name: 'Aptos', icon: aptIcon }, // Updated
+  WMATIC: { symbol: 'WMATIC', name: 'Wrapped Matic', icon: wmaticIcon }, // Updated
   AVAX: { symbol: 'AVAX', name: 'Avalanche', icon: avaxIcon }, // Updated
   BONK: { symbol: 'BONK', name: 'Bonk', icon: bonkIcon }, // Updated
-  ORCA: { symbol: 'ORCA', name: 'Orca', icon: placeholderIcon }, // Missing - Keep placeholder
+  ORCA: { symbol: 'ORCA', name: 'Orca', icon: orcaIcon }, // Updated
 };
 
 const CreatePoolPage = () => {

@@ -47,7 +47,6 @@ import avaxIcon from '../icons/avax.png'; // Added
 import bonkIcon from '../icons/bonk.png'; // Added
 import wmaticIcon from '../icons/wmatic.png'; // Added (assuming exists)
 import aptIcon from '../icons/apt.png'; // Added (assuming exists)
-// Note: RAY, SRM, ORCA are not used in this file's mock data, but added for consistency if needed later
 import rayIcon from '../icons/ray.png'; // Added (assuming exists)
 import srmIcon from '../icons/srm.png'; // Added (assuming exists)
 import orcaIcon from '../icons/orca.png'; // Added (assuming exists)
