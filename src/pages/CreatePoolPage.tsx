@@ -18,15 +18,23 @@ interface Token {
   icon: string; // Added icon URL
 }
 
-// Mock token data (replace with actual data source)
+// Mock token data (replace with actual data source) using local paths
+// IMPORTANT: User needs to place these icon files in the /public/icons/ directory
 const MOCK_TOKENS: { [key: string]: Token } = {
-  SUI: { symbol: 'SUI', name: 'Sui', icon: 'https://cryptologos.cc/logos/sui-sui-logo.png' },
-  USDC: { symbol: 'USDC', name: 'USD Coin', icon: 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png' },
-  USDT: { symbol: 'USDT', name: 'Tether', icon: 'https://cryptologos.cc/logos/tether-usdt-logo.png' },
-  WETH: { symbol: 'WETH', name: 'Wrapped Ether', icon: 'https://cryptologos.cc/logos/ethereum-eth-logo.png' },
-  SOL: { symbol: 'SOL', name: 'Solana', icon: 'https://cryptologos.cc/logos/solana-sol-logo.png' },
-  RAY: { symbol: 'RAY', name: 'Raydium', icon: 'https://cryptologos.cc/logos/raydium-ray-logo.png' },
-  SRM: { symbol: 'SRM', name: 'Serum', icon: 'https://cryptologos.cc/logos/serum-srm-logo.png' },
+  SUI: { symbol: 'SUI', name: 'Sui', icon: '/icons/sui.png' },
+  USDC: { symbol: 'USDC', name: 'USD Coin', icon: '/icons/usdc.png' },
+  USDT: { symbol: 'USDT', name: 'Tether', icon: '/icons/usdt.png' },
+  WETH: { symbol: 'WETH', name: 'Wrapped Ether', icon: '/icons/eth.png' }, // Assuming eth.png for WETH
+  SOL: { symbol: 'SOL', name: 'Solana', icon: '/icons/sol.png' },
+  RAY: { symbol: 'RAY', name: 'Raydium', icon: '/icons/ray.png' },
+  SRM: { symbol: 'SRM', name: 'Serum', icon: '/icons/srm.png' },
+  // Add other tokens used in PoolsPage if needed (BTC, APT, WMATIC, AVAX, BONK, ORCA)
+  BTC: { symbol: 'BTC', name: 'Bitcoin', icon: '/icons/btc.png' },
+  APT: { symbol: 'APT', name: 'Aptos', icon: '/icons/apt.png' },
+  WMATIC: { symbol: 'WMATIC', name: 'Wrapped Matic', icon: '/icons/wmatic.png' },
+  AVAX: { symbol: 'AVAX', name: 'Avalanche', icon: '/icons/avax.png' },
+  BONK: { symbol: 'BONK', name: 'Bonk', icon: '/icons/bonk.png' },
+  ORCA: { symbol: 'ORCA', name: 'Orca', icon: '/icons/orca.png' },
 };
 
 const CreatePoolPage = () => {

@@ -25,8 +25,50 @@ interface TokenInfo {
   name: string;
   icon: string;
   decimals: number; // Added decimals
-  type: string; // Added Sui type identifier
+  type: string; // Added Sui type identifier or Solana mint address
 }
+
+// Define available tokens using local paths
+// IMPORTANT: User needs to place these icon files in the /public/icons/ directory
+const AVAILABLE_TOKENS: TokenInfo[] = [
+  {
+    symbol: 'SUI',
+    name: 'Sui',
+    icon: '/icons/sui.png',
+    decimals: 9,
+    type: '0x2::sui::SUI'
+  },
+  {
+    symbol: 'USDC', // Assuming Sui USDC for now
+    name: 'USD Coin (Sui)',
+    icon: '/icons/usdc.png',
+    decimals: 6, // Verify
+    type: '0xPLACEHOLDER::usdc::USDC' // Replace with actual Sui USDC type
+  },
+  {
+    symbol: 'SOL', // Assuming wrapped SOL on Sui
+    name: 'Solana (Wormhole)',
+    icon: '/icons/sol.png',
+    decimals: 9, // Verify wrapped SOL decimals
+    type: '0xWORMHOLE_PLACEHOLDER::sol::SOL' // Replace with actual wrapped SOL type
+  },
+  {
+    symbol: 'USDT', // Assuming wrapped USDT on Sui
+    name: 'Tether (Wormhole)',
+    icon: '/icons/usdt.png',
+    decimals: 6, // Verify wrapped USDT decimals
+    type: '0xWORMHOLE_PLACEHOLDER::usdt::USDT' // Replace with actual wrapped USDT type
+  },
+  // TODO: Add Solana native tokens if needed, potentially differentiating by chain context
+  // {
+  //   symbol: 'USDC',
+  //   name: 'USD Coin (Solana)',
+  //   icon: '/icons/usdc.png',
+  //   decimals: 6,
+  //   type: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' // Example Solana USDC mint
+  // },
+];
+
 
 const SwapPage = () => {
   const { connected: suiConnected } = useSuiWallet(); // Get Sui connection status
@@ -45,28 +87,15 @@ const SwapPage = () => {
   const [swapRoute, setSwapRoute] = useState<string[]>([]);
   const [priceImpact, setPriceImpact] = useState<number>(0);
 
-  // Token Selection - Use the new TokenInfo type and add decimals/type
-  const [fromToken, setFromToken] = useState<TokenInfo>({
-    symbol: 'SUI',
-    name: 'Sui',
-    icon: 'https://cryptologos.cc/logos/sui-sui-logo.png',
-    decimals: 9, // Standard SUI decimals
-    type: '0x2::sui::SUI' // Standard SUI type
-  });
-
-  const [toToken, setToToken] = useState<TokenInfo>({
-    symbol: 'USDC',
-    name: 'USD Coin',
-    icon: 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png',
-    decimals: 6, // Common USDC decimals (verify this)
-    type: '0xPLACEHOLDER::usdc::USDC' // Replace with actual USDC type on Sui Testnet/Mainnet
-  });
+  // Token Selection - Initialize with default tokens from the list
+  const [fromToken, setFromToken] = useState<TokenInfo>(AVAILABLE_TOKENS[0]); // Default to SUI
+  const [toToken, setToToken] = useState<TokenInfo>(AVAILABLE_TOKENS[1]); // Default to USDC
 
   // Amount Inputs
   const [fromAmount, setFromAmount] = useState('');
   const [toAmount, setToAmount] = useState('');
 
-  // Get token balances
+  // Get token balances (hook needs adjustment if token type/address matters)
   const { balance: fromBalance, loading: loadingFromBalance } = useTokenBalance(fromToken.symbol);
   const { balance: toBalance, loading: loadingToBalance } = useTokenBalance(toToken.symbol);
 
@@ -74,52 +103,23 @@ const SwapPage = () => {
   const { price: fromPrice } = useTokenPrice(fromToken.symbol);
   const { price: toPrice } = useTokenPrice(toToken.symbol);
 
-  // Available tokens - Update with decimals and type
-  const tokens: TokenInfo[] = [
-    {
-      symbol: 'SUI',
-      name: 'Sui',
-      icon: 'https://cryptologos.cc/logos/sui-sui-logo.png',
-      decimals: 9,
-      type: '0x2::sui::SUI'
-    },
-    {
-      symbol: 'USDC',
-      name: 'USD Coin',
-      icon: 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png',
-      decimals: 6, // Verify
-      type: '0xPLACEHOLDER::usdc::USDC' // Replace
-    },
-    {
-      symbol: 'SOL', // Assuming wrapped SOL
-      name: 'Solana (Wormhole)',
-      icon: 'https://cryptologos.cc/logos/solana-sol-logo.png',
-      decimals: 9, // Verify wrapped SOL decimals
-      type: '0xWORMHOLE_PLACEHOLDER::sol::SOL' // Replace with actual wrapped SOL type
-    },
-    {
-      symbol: 'USDT', // Assuming wrapped USDT
-      name: 'Tether (Wormhole)',
-      icon: 'https://cryptologos.cc/logos/tether-usdt-logo.png',
-      decimals: 6, // Verify wrapped USDT decimals
-      type: '0xWORMHOLE_PLACEHOLDER::usdt::USDT' // Replace with actual wrapped USDT type
-    }
-  ];
-
   // Handle token swap
   const handleFromAmountChange = async (value: string) => {
     setFromAmount(value);
-    if (value) {
-      const output = await calculateOutputAmount(fromToken.symbol, toToken.symbol, value);
-      setToAmount(output.toString());
-      
-      // Update price impact
-      const impact = await getPriceImpact(fromToken.symbol, toToken.symbol, value);
-      setPriceImpact(impact);
-      
-      // Get and set swap route
-      const route = await getSwapRoute(fromToken.symbol, toToken.symbol, value);
-      setSwapRoute(route);
+    if (value && parseFloat(value) > 0 && fromToken && toToken) {
+      try {
+        const output = await calculateOutputAmount(fromToken.symbol, toToken.symbol, value);
+        setToAmount(output.toString());
+        const impact = await getPriceImpact(fromToken.symbol, toToken.symbol, value);
+        setPriceImpact(impact);
+        const route = await getSwapRoute(fromToken.symbol, toToken.symbol, value);
+        setSwapRoute(route);
+      } catch (e) {
+        console.error("Error calculating output:", e);
+        setToAmount('');
+        setPriceImpact(0);
+        setSwapRoute([]);
+      }
     } else {
       setToAmount('');
       setPriceImpact(0);
@@ -127,38 +127,51 @@ const SwapPage = () => {
     }
   };
 
+  // Note: handleToAmountChange might need reverse calculation logic in useSwap hook
   const handleToAmountChange = async (value: string) => {
-    setToAmount(value);
-    if (value) {
-      const output = await calculateOutputAmount(toToken.symbol, fromToken.symbol, value, true);
-      setFromAmount(output.toString());
-      
-      // Update price impact
-      const impact = await getPriceImpact(fromToken.symbol, toToken.symbol, output.toString());
-      setPriceImpact(impact);
-      
-      // Get and set swap route
-      const route = await getSwapRoute(fromToken.symbol, toToken.symbol, output.toString());
-      setSwapRoute(route);
-    } else {
-      setFromAmount('');
-      setPriceImpact(0);
-      setSwapRoute([]);
-    }
-  };
+     setToAmount(value);
+     if (value && parseFloat(value) > 0 && fromToken && toToken) {
+       try {
+         // Assuming calculateOutputAmount can handle reverse calculation if last arg is true
+         const input = await calculateOutputAmount(toToken.symbol, fromToken.symbol, value, true);
+         setFromAmount(input.toString());
+         const impact = await getPriceImpact(fromToken.symbol, toToken.symbol, input.toString());
+         setPriceImpact(impact);
+         const route = await getSwapRoute(fromToken.symbol, toToken.symbol, input.toString());
+         setSwapRoute(route);
+       } catch (e) {
+         console.error("Error calculating input:", e);
+         setFromAmount('');
+         setPriceImpact(0);
+         setSwapRoute([]);
+       }
+     } else {
+       setFromAmount('');
+       setPriceImpact(0);
+       setSwapRoute([]);
+     }
+   };
+
 
   const handleSwapTokens = () => {
     const tempToken = fromToken;
     setFromToken(toToken);
     setToToken(tempToken);
-    setFromAmount('');
-    setToAmount('');
-    setPriceImpact(0);
-    setSwapRoute([]);
+    // Swap amounts as well
+    const tempAmount = fromAmount;
+    setFromAmount(toAmount);
+    setToAmount(tempAmount);
+    // Recalculate route/impact if needed based on the new 'fromAmount'
+    if(toAmount) {
+       handleFromAmountChange(toAmount);
+    } else {
+       setPriceImpact(0);
+       setSwapRoute([]);
+    }
   };
 
   const handleSwap = async () => {
-    if (!fromAmount || !toAmount) return;
+    if (!fromAmount || !toAmount || !fromToken || !toToken) return;
 
     try {
       // Pass the full token objects to executeSwap
@@ -166,7 +179,6 @@ const SwapPage = () => {
         fromToken: fromToken, // Pass the object
         toToken: toToken,   // Pass the object
         fromAmount,
-        // toAmount is not needed directly, min_amount_out calculated from slippage
         slippage: parseFloat(slippage)
       });
 
@@ -177,10 +189,12 @@ const SwapPage = () => {
       setSwapRoute([]);
     } catch (error) {
       // Error handling is done in the useSwap hook
+      console.error("Swap execution failed:", error);
     }
   };
 
   // Update the connection check to see if *neither* wallet is connected
+  // This might need refinement based on which chain the selected tokens belong to
   if (!isAnyWalletConnected) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -193,7 +207,7 @@ const SwapPage = () => {
     );
   }
 
-  const isSwapDisabled = !fromAmount || !toAmount || loadingFromBalance || loadingToBalance;
+  const isSwapDisabled = !fromAmount || !toAmount || loadingFromBalance || loadingToBalance || parseFloat(fromAmount) <= 0;
   const showPriceImpactWarning = priceImpact > 2;
 
   return (
@@ -231,14 +245,24 @@ const SwapPage = () => {
             <div className="space-y-2">
               <TokenSelect
                 value={fromToken}
-                onChange={setFromToken}
-                tokens={tokens}
+                // Find the full TokenInfo object when TokenSelect returns a basic Token
+                onChange={(selectedTokenFromSelect) => {
+                   const fullTokenInfo = AVAILABLE_TOKENS.find(t => t.symbol === selectedTokenFromSelect.symbol);
+                   if (fullTokenInfo) {
+                       setFromToken(fullTokenInfo);
+                       // Recalculate output when 'from' token changes
+                       handleFromAmountChange(fromAmount);
+                   }
+                }}
+                // Pass the basic Token structure expected by TokenSelect items
+                tokens={AVAILABLE_TOKENS.filter(t => t.symbol !== toToken?.symbol).map(t => ({ symbol: t.symbol, name: t.name, icon: t.icon }))}
               />
               <TokenInput
                 label="From"
                 value={fromAmount}
                 onChange={handleFromAmountChange}
-                balance={fromBalance}
+                // Handle potential null balance, default to undefined or '0'
+                balance={fromBalance ?? undefined}
                 symbol={fromToken.symbol}
                 tokenIcon={fromToken.icon}
                 isLoading={loadingFromBalance}
@@ -260,30 +284,41 @@ const SwapPage = () => {
             <div className="space-y-2">
               <TokenSelect
                 value={toToken}
-                onChange={setToToken}
-                tokens={tokens}
+                 // Find the full TokenInfo object when TokenSelect returns a basic Token
+                onChange={(selectedTokenFromSelect) => {
+                   const fullTokenInfo = AVAILABLE_TOKENS.find(t => t.symbol === selectedTokenFromSelect.symbol);
+                   if (fullTokenInfo) {
+                       setToToken(fullTokenInfo);
+                       // Recalculate output when 'to' token changes (based on fromAmount)
+                       handleFromAmountChange(fromAmount);
+                   }
+                }}
+                 // Pass the basic Token structure expected by TokenSelect items
+                tokens={AVAILABLE_TOKENS.filter(t => t.symbol !== fromToken?.symbol).map(t => ({ symbol: t.symbol, name: t.name, icon: t.icon }))}
               />
               <TokenInput
-                label="To"
+                label="To (estimated)" // Label updated
                 value={toAmount}
-                onChange={handleToAmountChange}
-                balance={toBalance}
+                onChange={handleToAmountChange} // Allow changing 'to' amount
+                 // Handle potential null balance
+                balance={toBalance ?? undefined}
                 symbol={toToken.symbol}
                 tokenIcon={toToken.icon}
                 isLoading={loadingToBalance}
+                // MAX button doesn't make sense for 'to' amount
               />
             </div>
 
             {/* Swap Details */}
-            {fromAmount && toAmount && (
+            {fromAmount && toAmount && parseFloat(fromAmount) > 0 && (
               <div className="p-4 bg-neutral-50 rounded-xl space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-neutral-600">Rate</span>
                   <span>
-                    1 {fromToken.symbol} = {(parseFloat(toAmount) / parseFloat(fromAmount)).toFixed(6)} {toToken.symbol}
+                    1 {fromToken.symbol} ≈ {(parseFloat(toAmount) / parseFloat(fromAmount)).toFixed(6)} {toToken.symbol}
                   </span>
                 </div>
-                
+
                 <div className="flex justify-between text-sm">
                   <span className="text-neutral-600">Price Impact</span>
                   <span className={priceImpact > 2 ? 'text-red-500' : 'text-green-500'}>
@@ -291,10 +326,12 @@ const SwapPage = () => {
                   </span>
                 </div>
 
-                <div className="flex justify-between text-sm">
-                  <span className="text-neutral-600">Route</span>
-                  <span>{swapRoute.join(' → ')}</span>
-                </div>
+                {swapRoute.length > 0 && (
+                   <div className="flex justify-between text-sm">
+                     <span className="text-neutral-600">Route</span>
+                     <span className="text-right">{swapRoute.join(' → ')}</span>
+                   </div>
+                )}
 
                 <div className="flex justify-between text-sm">
                   <span className="text-neutral-600">Minimum Received</span>
@@ -308,14 +345,15 @@ const SwapPage = () => {
             {showPriceImpactWarning && (
               <Alert
                 type="warning"
-                message="High price impact! The size of your trade will significantly affect the market price."
+                message="High price impact! The size of your trade may significantly affect the market price."
               />
             )}
 
             <Button
               onClick={handleSwap}
-              disabled={isSwapDisabled}
+              disabled={isSwapDisabled} // Use calculated disabled state
               className="w-full"
+              // TODO: Add loading state from useSwap hook
             >
               Swap
             </Button>

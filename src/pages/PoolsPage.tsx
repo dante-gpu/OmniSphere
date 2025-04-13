@@ -40,8 +40,28 @@ import {
   ResponsiveContainer
 } from 'recharts';
 
+// Define token icons map first using local paths (relative to /public)
+// IMPORTANT: User needs to place these icon files in the /public/icons/ directory
+const tokenIcons = {
+  SUI: '/icons/sui.png',
+  SOL: '/icons/sol.png',
+  USDC: '/icons/usdc.png',
+  USDT: '/icons/usdt.png',
+  BTC: '/icons/btc.png',
+  ETH: '/icons/eth.png',
+  APT: '/icons/apt.png',
+  WMATIC: '/icons/wmatic.png', // Assuming polygon icon is named wmatic.png
+  AVAX: '/icons/avax.png',
+  SRM: '/icons/srm.png',
+  BONK: '/icons/bonk.png',
+  RAY: '/icons/ray.png',
+  ORCA: '/icons/orca.png'
+};
+
+// Define Token type based on the keys of the icon map
+type Token = keyof typeof tokenIcons;
+
 type TabType = 'add' | 'remove';
-type Token = 'SUI' | 'USDC' | 'SOL' | 'USDT' | 'BTC' | 'ETH' | 'APT' | 'WMATIC' | 'AVAX' | 'SRM' | 'BONK' | 'RAY' | 'ORCA';
 
 interface Pool {
   id: string;
@@ -374,21 +394,7 @@ const PoolsPage = () => {
     }
   ];
 
-  const tokenIcons = {
-    SUI: 'https://cryptologos.cc/logos/sui-sui-logo.png',
-    SOL: 'https://cryptologos.cc/logos/solana-sol-logo.png',
-    USDC: 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png',
-    USDT: 'https://cryptologos.cc/logos/tether-usdt-logo.png',
-    BTC: 'https://cryptologos.cc/logos/bitcoin-btc-logo.png',
-    ETH: 'https://cryptologos.cc/logos/ethereum-eth-logo.png',
-    APT: 'https://cryptologos.cc/logos/aptos-apt-logo.png',
-    WMATIC: 'https://cryptologos.cc/logos/polygon-matic-logo.png',
-    AVAX: 'https://cryptologos.cc/logos/avalanche-avax-logo.png',
-    SRM: 'https://cryptologos.cc/logos/serum-srm-logo.png',
-    BONK: 'https://cryptologos.cc/logos/bonk-bonk-logo.png',
-    RAY: 'https://cryptologos.cc/logos/raydium-ray-logo.png',
-    ORCA: 'https://cryptologos.cc/logos/orca-orca-logo.png'
-  };
+  // tokenIcons map is now defined at the top level
 
   const filteredPools = pools
     .filter(pool => {
@@ -633,28 +639,29 @@ const PoolsPage = () => {
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
                       <div className="flex -space-x-2">
+                        {/* Access icons safely, providing a fallback if symbol doesn't exist */}
                         <img
-                          src={tokenIcons[pool.token1 as Token]}
+                          src={tokenIcons[pool.token1] ?? '/placeholder-icon.png'} // Use direct access, provide fallback
                           alt={pool.token1}
-                          className="w-6 h-6 rounded-full border-2 border-white"
+                          className="w-6 h-6 rounded-full border-2 border-white bg-gray-200" // Added bg color for fallback visibility
                         />
                         <img
-                          src={tokenIcons[pool.token2 as Token]}
+                          src={tokenIcons[pool.token2] ?? '/placeholder-icon.png'} // Use direct access, provide fallback
                           alt={pool.token2}
-                          className="w-6 h-6 rounded-full border-2 border-white"
+                          className="w-6 h-6 rounded-full border-2 border-white bg-gray-200" // Added bg color for fallback visibility
                         />
                       </div>
                       <div>
                         <span className="font-medium">{pool.name}</span>
                         {pool.rewards.length > 0 && (
                           <div className="flex items-center gap-1 mt-1">
-                            {pool.rewards.map((reward) => (
+                            {pool.rewards.map((rewardSymbol) => ( // Iterate through reward symbols
                               <img
-                                key={reward}
-                                src={tokenIcons[reward as Token]}
-                                alt={reward}
-                                className="w-4 h-4"
-                                title={`Earn ${reward} rewards`}
+                                key={rewardSymbol}
+                                src={tokenIcons[rewardSymbol as Token] ?? '/placeholder-icon.png'} // Use reward symbol, provide fallback
+                                alt={rewardSymbol}
+                                className="w-4 h-4 bg-gray-200" // Added bg color
+                                title={`Earn ${rewardSymbol} rewards`}
                               />
                             ))}
                           </div>

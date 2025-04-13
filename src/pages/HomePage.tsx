@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { 
-  ArrowRight, 
+import {
+  ArrowRight,
   Network,
   BarChart3,
   ExternalLink,
@@ -9,11 +9,11 @@ import {
   Clock,
   Zap
 } from 'lucide-react';
-import { 
-  AreaChart, 
-  Area, 
-  XAxis, 
-  YAxis, 
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
   ResponsiveContainer,
   Tooltip
 } from 'recharts';
@@ -167,10 +167,10 @@ const HomePage = () => {
       <div id="features" className="container mx-auto px-4 py-16">
         <div className="grid md:grid-cols-3 gap-8">
           {features.map((feature, index) => (
-            <div 
-              key={index} 
+            <div
+              key={index}
               className={`
-                bg-white rounded-2xl p-8 shadow-sm border border-neutral-100 
+                bg-white rounded-2xl p-8 shadow-sm border border-neutral-100
                 hover-card animate-fade-in animate-shimmer
                 animate-delay-${(index + 1) * 100}
               `}
@@ -198,10 +198,10 @@ const HomePage = () => {
         </div>
         <div className="grid md:grid-cols-3 gap-8">
           {advantages.map((advantage, index) => (
-            <div 
-              key={index} 
+            <div
+              key={index}
               className={`
-                bg-white rounded-2xl p-8 shadow-sm border border-neutral-100 
+                bg-white rounded-2xl p-8 shadow-sm border border-neutral-100
                 hover-card animate-fade-in
                 animate-delay-${(index + 1) * 200}
               `}
@@ -220,14 +220,16 @@ const HomePage = () => {
               <h3 className="text-2xl font-bold mb-6">Supported Chains</h3>
               <div className="space-y-4">
                 <div className="flex items-center gap-4 p-4 rounded-lg hover:bg-neutral-50 transition-colors">
-                  <img src="https://cryptologos.cc/logos/sui-sui-logo.png" alt="Sui" className="w-8 h-8" />
+                  {/* Use local icon path */}
+                  <img src="/icons/sui.png" alt="Sui" className="w-8 h-8" />
                   <div>
                     <span className="text-lg font-medium">Sui</span>
                     <p className="text-sm text-neutral-500">Fast, cost-efficient Layer 1</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-4 p-4 rounded-lg hover:bg-neutral-50 transition-colors">
-                  <img src="https://cryptologos.cc/logos/solana-sol-logo.png" alt="Solana" className="w-8 h-8" />
+                   {/* Use local icon path */}
+                  <img src="/icons/sol.png" alt="Solana" className="w-8 h-8" />
                   <div>
                     <span className="text-lg font-medium">Solana</span>
                     <p className="text-sm text-neutral-500">High-performance blockchain</p>
@@ -235,7 +237,8 @@ const HomePage = () => {
                 </div>
               </div>
               <div className="flex items-center gap-2 text-neutral-500 text-sm mt-6 pt-6 border-t">
-                <img src="https://wormhole.com/images/wormhole-logo.png" alt="Wormhole" className="w-5 h-5" />
+                 {/* Assuming wormhole icon is also local or keep external if it works */}
+                <img src="/icons/wormhole.png" alt="Wormhole" className="w-5 h-5" />
                 <span>Powered by Wormhole</span>
                 <ExternalLink size={16} />
               </div>

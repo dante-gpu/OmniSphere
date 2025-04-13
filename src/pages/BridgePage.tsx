@@ -68,14 +68,16 @@ const BridgePage = () => {
   // Removed unused fees object
   // const fees = { ... };
 
+  // Use local icon paths
   const chainIcons: Record<SupportedChainOption, string> = {
-    Sui: 'https://cryptologos.cc/logos/sui-sui-logo.png',
-    Solana: 'https://cryptologos.cc/logos/solana-sol-logo.png'
+    Sui: '/icons/sui.png',
+    Solana: '/icons/sol.png'
   };
 
+  // Use local icon paths
   const tokenIcons: Record<TokenSymbolOption, string> = {
-    USDC: 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png',
-    USDT: 'https://cryptologos.cc/logos/tether-usdt-logo.png'
+    USDC: '/icons/usdc.png',
+    USDT: '/icons/usdt.png'
   };
 
   const handleSwapChains = () => {
@@ -233,9 +235,9 @@ const BridgePage = () => {
             <div className="flex justify-center items-center pb-2 md:pb-0 md:relative">
               <Button
                 variant="outline"
-                size="icon"
+                // Removed invalid size="icon" prop
                 onClick={handleSwapChains}
-                className="md:absolute md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 z-10"
+                className="md:absolute md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 z-10 p-2" // Added padding for icon button look
                 disabled={isBridging}
               >
                 <ArrowRightLeft className="text-primary" size={20} />
@@ -333,6 +335,14 @@ const BridgePage = () => {
           {/* Fee Breakdown (Keep placeholders or implement dynamic quoting later) */}
           <div className="bg-neutral-50 rounded-xl p-4 mb-6">
             {/* ... fee breakdown UI ... */}
+             <div className="flex justify-between text-sm text-neutral-600">
+                <span>Estimated Fees</span>
+                <span>~0.01 {fromChain === 'Sui' ? 'SUI' : 'SOL'} + Wormhole Fee</span>
+             </div>
+             <div className="flex justify-between text-sm text-neutral-600 mt-1">
+                <span>Estimated Time</span>
+                <span>2-5 minutes</span>
+             </div>
           </div>
 
           <Button onClick={handleBridge} disabled={isBridging} className="w-full">
@@ -359,9 +369,37 @@ const BridgePage = () => {
 
         {/* Info Cards */}
         {/* ... info cards UI ... */}
+         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+            <div className="bg-white rounded-xl shadow-card p-6 flex items-start gap-4">
+                <Clock className="text-primary w-8 h-8 mt-1 flex-shrink-0" />
+                <div>
+                    <h3 className="font-semibold mb-1">Fast Transfers</h3>
+                    <p className="text-sm text-neutral-600">Leverage Wormhole for quick cross-chain asset bridging.</p>
+                </div>
+            </div>
+             <div className="bg-white rounded-xl shadow-card p-6 flex items-start gap-4">
+                <Shield className="text-primary w-8 h-8 mt-1 flex-shrink-0" />
+                <div>
+                    <h3 className="font-semibold mb-1">Secure Bridge</h3>
+                    <p className="text-sm text-neutral-600">Utilizes Wormhole's guardian network for secure VAA verification.</p>
+                </div>
+            </div>
+             <div className="bg-white rounded-xl shadow-card p-6 flex items-start gap-4">
+                <Zap className="text-primary w-8 h-8 mt-1 flex-shrink-0" />
+                <div>
+                    <h3 className="font-semibold mb-1">Low Fees</h3>
+                    <p className="text-sm text-neutral-600">Benefit from competitive bridging fees.</p>
+                </div>
+            </div>
+        </div>
 
         {/* Transaction History */}
         {/* ... transaction history UI ... */}
+         <div className="bg-white rounded-xl shadow-card p-6 mt-8">
+             <h3 className="text-xl font-bold mb-4">Bridge History</h3>
+             <p className="text-neutral-500 text-center py-4">No recent bridge transactions.</p>
+             {/* TODO: Implement transaction history display */}
+         </div>
       </div>
     </div>
   );
