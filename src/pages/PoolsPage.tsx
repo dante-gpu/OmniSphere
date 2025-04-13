@@ -45,6 +45,15 @@ import suiIcon from '../icons/sui.webp';
 import solIcon from '../icons/sol.svg';
 import usdcIcon from '../icons/usdc.png';
 import usdtIcon from '../icons/tether.png';
+import ethIcon from '../icons/eth.png'; // Added
+import btcIcon from '../icons/btc.png'; // Added
+import avaxIcon from '../icons/avax.png'; // Added
+import bonkIcon from '../icons/bonk.png'; // Added
+import wmaticIcon from '../icons/wmatic.png'; // Added (assuming exists)
+import aptIcon from '../icons/apt.png'; // Added (assuming exists)
+import rayIcon from '../icons/ray.png'; // Added (assuming exists)
+import srmIcon from '../icons/srm.png'; // Added (assuming exists)
+import orcaIcon from '../icons/orca.png'; // Added (assuming exists)
 
 // Define token icons map first using imported variables and local paths
 // IMPORTANT: User needs to place other icon files in the /public/icons/ directory
@@ -53,15 +62,15 @@ const tokenIcons = {
   SOL: solIcon, // Use imported icon
   USDC: usdcIcon, // Use imported icon
   USDT: usdtIcon, // Use imported icon
-  BTC: '/icons/btc.png',
-  ETH: '/icons/eth.png',
-  APT: '/icons/apt.png',
-  WMATIC: '/icons/wmatic.png', // Assuming polygon icon is named wmatic.png
-  AVAX: '/icons/avax.png',
-  SRM: '/icons/srm.png',
-  BONK: '/icons/bonk.png',
-  RAY: '/icons/ray.png',
-  ORCA: '/icons/orca.png'
+  BTC: btcIcon, // Updated
+  ETH: ethIcon, // Updated
+  APT: aptIcon, // Updated (assuming apt.png)
+  WMATIC: wmaticIcon, // Updated (assuming wmatic.png)
+  AVAX: avaxIcon, // Updated
+  SRM: srmIcon, // Updated (assuming srm.png)
+  BONK: bonkIcon, // Updated
+  RAY: rayIcon, // Updated (assuming ray.png)
+  ORCA: orcaIcon // Updated (assuming orca.png)
 };
 
 // Define Token type based on the keys of the icon map

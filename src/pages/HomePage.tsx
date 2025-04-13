@@ -21,6 +21,7 @@ import {
 // Import the new icons
 import suiIcon from '../icons/sui.webp';
 import solIcon from '../icons/sol.svg';
+import wormholeIcon from '../icons/wormhole.png'; // Added
 
 const HomePage = () => {
   const generateChartData = (points: number, trend: 'up' | 'down' | 'volatile') => {
@@ -241,8 +242,8 @@ const HomePage = () => {
                 </div>
               </div>
               <div className="flex items-center gap-2 text-neutral-500 text-sm mt-6 pt-6 border-t">
-                 {/* Assuming wormhole icon is also local or keep external if it works */}
-                <img src="/icons/wormhole.png" alt="Wormhole" className="w-5 h-5" />
+                 {/* Use imported icon */}
+                <img src={wormholeIcon} alt="Wormhole" className="w-5 h-5" />
                 <span>Powered by Wormhole</span>
                 <ExternalLink size={16} />
               </div>

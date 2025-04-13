@@ -34,6 +34,13 @@ import { Button } from '../components/ui/Button'; // Assuming named export
 // import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/Select'; // Using standard select
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'; // Use named import
 
+// Import the new icons
+import suiIcon from '../icons/sui.webp';
+import solIcon from '../icons/sol.svg';
+import usdcIcon from '../icons/usdc.png';
+import usdtIcon from '../icons/tether.png';
+// Note: Other icons like btc, eth, avax, bonk are not used on this page currently
+
 dayjs.extend(relativeTime); // Extend dayjs with the plugin
 
 // Use Wormhole SDK Chain type
@@ -68,16 +75,16 @@ const BridgePage = () => {
   // Removed unused fees object
   // const fees = { ... };
 
-  // Use local icon paths
+  // Use imported icons
   const chainIcons: Record<SupportedChainOption, string> = {
-    Sui: '/icons/sui.png',
-    Solana: '/icons/sol.png'
+    Sui: suiIcon, // Use imported icon
+    Solana: solIcon // Use imported icon
   };
 
-  // Use local icon paths
+  // Use imported icons
   const tokenIcons: Record<TokenSymbolOption, string> = {
-    USDC: '/icons/usdc.png',
-    USDT: '/icons/usdt.png'
+    USDC: usdcIcon, // Use imported icon
+    USDT: usdtIcon // Use imported icon
   };
 
   const handleSwapChains = () => {

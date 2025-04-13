@@ -24,6 +24,11 @@ import suiIcon from '../icons/sui.webp';
 import solIcon from '../icons/sol.svg';
 import usdcIcon from '../icons/usdc.png';
 import usdtIcon from '../icons/tether.png';
+import ethIcon from '../icons/eth.png'; // Added
+import btcIcon from '../icons/btc.png'; // Added
+import avaxIcon from '../icons/avax.png'; // Added
+import bonkIcon from '../icons/bonk.png'; // Added
+import wmaticIcon from '../icons/wmatic.png'; // Assuming this exists based on PoolsPage
 // Define a placeholder for missing icons (if needed elsewhere, keep consistent)
 const placeholderIcon = '/placeholder-icon.png'; // Or path to a generic icon in public/
 
@@ -67,6 +72,41 @@ const AVAILABLE_TOKENS: TokenInfo[] = [
     icon: usdtIcon, // Use imported icon
     decimals: 6, // Verify wrapped USDT decimals
     type: '0xWORMHOLE_PLACEHOLDER::usdt::USDT' // Replace with actual wrapped USDT type
+  },
+  {
+    symbol: 'WETH', // Assuming wrapped ETH on Sui
+    name: 'Wrapped Ether (Wormhole)',
+    icon: ethIcon, // Use imported icon
+    decimals: 8, // Verify wrapped ETH decimals
+    type: '0xWORMHOLE_PLACEHOLDER::weth::WETH' // Replace with actual wrapped ETH type
+  },
+  {
+    symbol: 'BTC', // Assuming wrapped BTC on Sui
+    name: 'Bitcoin (Wormhole)',
+    icon: btcIcon, // Use imported icon
+    decimals: 8, // Verify wrapped BTC decimals
+    type: '0xWORMHOLE_PLACEHOLDER::btc::BTC' // Replace with actual wrapped BTC type
+  },
+  {
+    symbol: 'AVAX', // Assuming wrapped AVAX on Sui
+    name: 'Avalanche (Wormhole)',
+    icon: avaxIcon, // Use imported icon
+    decimals: 8, // Verify wrapped AVAX decimals
+    type: '0xWORMHOLE_PLACEHOLDER::avax::AVAX' // Replace with actual wrapped AVAX type
+  },
+  {
+    symbol: 'BONK', // Assuming wrapped BONK on Sui
+    name: 'Bonk (Wormhole)',
+    icon: bonkIcon, // Use imported icon
+    decimals: 5, // Verify wrapped BONK decimals
+    type: '0xWORMHOLE_PLACEHOLDER::bonk::BONK' // Replace with actual wrapped BONK type
+  },
+  {
+    symbol: 'WMATIC', // Assuming wrapped MATIC on Sui
+    name: 'Wrapped Matic (Wormhole)',
+    icon: wmaticIcon, // Use imported icon
+    decimals: 8, // Verify wrapped MATIC decimals
+    type: '0xWORMHOLE_PLACEHOLDER::wmatic::WMATIC' // Replace with actual wrapped MATIC type
   },
   // TODO: Add Solana native tokens if needed, potentially differentiating by chain context
   // {

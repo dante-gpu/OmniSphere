@@ -41,6 +41,17 @@ import suiIcon from '../icons/sui.webp';
 import solIcon from '../icons/sol.svg';
 import usdcIcon from '../icons/usdc.png';
 import usdtIcon from '../icons/tether.png';
+import ethIcon from '../icons/eth.png'; // Added
+import btcIcon from '../icons/btc.png'; // Added
+import avaxIcon from '../icons/avax.png'; // Added
+import bonkIcon from '../icons/bonk.png'; // Added
+import wmaticIcon from '../icons/wmatic.png'; // Added (assuming exists)
+import aptIcon from '../icons/apt.png'; // Added (assuming exists)
+// Note: RAY, SRM, ORCA are not used in this file's mock data, but added for consistency if needed later
+import rayIcon from '../icons/ray.png'; // Added (assuming exists)
+import srmIcon from '../icons/srm.png'; // Added (assuming exists)
+import orcaIcon from '../icons/orca.png'; // Added (assuming exists)
+
 
 // Define token icons map (add other tokens if needed)
 const tokenIcons: { [key: string]: string } = { // Added type annotation
@@ -48,9 +59,16 @@ const tokenIcons: { [key: string]: string } = { // Added type annotation
   SOL: solIcon,
   USDC: usdcIcon,
   USDT: usdtIcon,
-  // Add other potential token symbols used in pools if necessary
-  BTC: '/icons/btc.png', // Example placeholder
-  ETH: '/icons/eth.png', // Example placeholder
+  BTC: btcIcon, // Updated
+  ETH: ethIcon, // Updated
+  WETH: ethIcon, // Added alias for Wrapped Ether
+  APT: aptIcon, // Updated (assuming apt.png)
+  WMATIC: wmaticIcon, // Updated (assuming wmatic.png)
+  AVAX: avaxIcon, // Updated
+  SRM: srmIcon, // Updated (assuming srm.png)
+  BONK: bonkIcon, // Updated
+  RAY: rayIcon, // Updated (assuming ray.png)
+  ORCA: orcaIcon // Updated (assuming orca.png)
 };
 
 
