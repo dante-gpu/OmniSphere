@@ -19,6 +19,15 @@ import { useSwap } from '../hooks/useSwap';
 import { useTokenBalance } from '../hooks/useTokenBalance';
 import { useTokenPrice } from '../hooks/useTokenPrice';
 
+// Import the new icons
+import suiIcon from '../icons/sui.webp';
+import solIcon from '../icons/sol.svg';
+import usdcIcon from '../icons/usdc.png';
+import usdtIcon from '../icons/tether.png';
+// Define a placeholder for missing icons (if needed elsewhere, keep consistent)
+const placeholderIcon = '/placeholder-icon.png'; // Or path to a generic icon in public/
+
+
 // Define a more detailed token type
 interface TokenInfo {
   symbol: string;
@@ -34,28 +43,28 @@ const AVAILABLE_TOKENS: TokenInfo[] = [
   {
     symbol: 'SUI',
     name: 'Sui',
-    icon: '/icons/sui.png',
+    icon: suiIcon, // Use imported icon
     decimals: 9,
     type: '0x2::sui::SUI'
   },
   {
     symbol: 'USDC', // Assuming Sui USDC for now
     name: 'USD Coin (Sui)',
-    icon: '/icons/usdc.png',
+    icon: usdcIcon, // Use imported icon
     decimals: 6, // Verify
     type: '0xPLACEHOLDER::usdc::USDC' // Replace with actual Sui USDC type
   },
   {
     symbol: 'SOL', // Assuming wrapped SOL on Sui
     name: 'Solana (Wormhole)',
-    icon: '/icons/sol.png',
+    icon: solIcon, // Use imported icon
     decimals: 9, // Verify wrapped SOL decimals
     type: '0xWORMHOLE_PLACEHOLDER::sol::SOL' // Replace with actual wrapped SOL type
   },
   {
     symbol: 'USDT', // Assuming wrapped USDT on Sui
     name: 'Tether (Wormhole)',
-    icon: '/icons/usdt.png',
+    icon: usdtIcon, // Use imported icon
     decimals: 6, // Verify wrapped USDT decimals
     type: '0xWORMHOLE_PLACEHOLDER::usdt::USDT' // Replace with actual wrapped USDT type
   },

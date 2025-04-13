@@ -18,6 +18,10 @@ import {
   Tooltip
 } from 'recharts';
 
+// Import the new icons
+import suiIcon from '../icons/sui.webp';
+import solIcon from '../icons/sol.svg';
+
 const HomePage = () => {
   const generateChartData = (points: number, trend: 'up' | 'down' | 'volatile') => {
     let baseValue = 50;
@@ -220,16 +224,16 @@ const HomePage = () => {
               <h3 className="text-2xl font-bold mb-6">Supported Chains</h3>
               <div className="space-y-4">
                 <div className="flex items-center gap-4 p-4 rounded-lg hover:bg-neutral-50 transition-colors">
-                  {/* Use local icon path */}
-                  <img src="/icons/sui.png" alt="Sui" className="w-8 h-8" />
+                  {/* Use imported icon */}
+                  <img src={suiIcon} alt="Sui" className="w-8 h-8" />
                   <div>
                     <span className="text-lg font-medium">Sui</span>
                     <p className="text-sm text-neutral-500">Fast, cost-efficient Layer 1</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-4 p-4 rounded-lg hover:bg-neutral-50 transition-colors">
-                   {/* Use local icon path */}
-                  <img src="/icons/sol.png" alt="Solana" className="w-8 h-8" />
+                   {/* Use imported icon */}
+                  <img src={solIcon} alt="Solana" className="w-8 h-8" />
                   <div>
                     <span className="text-lg font-medium">Solana</span>
                     <p className="text-sm text-neutral-500">High-performance blockchain</p>

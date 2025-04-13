@@ -8,11 +8,11 @@ import { TokenInput } from '../components/forms/TokenInput';
 import { Dropdown } from '../components/ui/Dropdown';
 import { useCreatePool } from '../hooks/useCreatePool'; // Import the hook
 
-// Import available icons from src/icons
-import suiIcon from '../icons/Sui Logo.webp';
-import solIcon from '../icons/Solana Logo.svg';
-import usdcIcon from '../icons/USDC Logo.png';
-import usdtIcon from '../icons/Tether USDT Logo.png';
+// Import available icons from src/icons with updated names
+import suiIcon from '../icons/sui.webp';
+import solIcon from '../icons/sol.svg';
+import usdcIcon from '../icons/usdc.png';
+import usdtIcon from '../icons/tether.png';
 // Define a placeholder for missing icons
 const placeholderIcon = '/placeholder-icon.png'; // Or path to a generic icon in public/
 
@@ -26,7 +26,7 @@ interface Token {
   icon: string; // Keep as string (path or imported variable)
 }
 
-// Mock token data using imported icons and placeholders
+// Mock token data using imported icons and placeholders with updated names
 const MOCK_TOKENS: { [key: string]: Token } = {
   SUI: { symbol: 'SUI', name: 'Sui', icon: suiIcon },
   USDC: { symbol: 'USDC', name: 'USD Coin', icon: usdcIcon },

@@ -40,13 +40,19 @@ import {
   ResponsiveContainer
 } from 'recharts';
 
-// Define token icons map first using local paths (relative to /public)
-// IMPORTANT: User needs to place these icon files in the /public/icons/ directory
+// Import the new icons
+import suiIcon from '../icons/sui.webp';
+import solIcon from '../icons/sol.svg';
+import usdcIcon from '../icons/usdc.png';
+import usdtIcon from '../icons/tether.png';
+
+// Define token icons map first using imported variables and local paths
+// IMPORTANT: User needs to place other icon files in the /public/icons/ directory
 const tokenIcons = {
-  SUI: '/icons/sui.png',
-  SOL: '/icons/sol.png',
-  USDC: '/icons/usdc.png',
-  USDT: '/icons/usdt.png',
+  SUI: suiIcon, // Use imported icon
+  SOL: solIcon, // Use imported icon
+  USDC: usdcIcon, // Use imported icon
+  USDT: usdtIcon, // Use imported icon
   BTC: '/icons/btc.png',
   ETH: '/icons/eth.png',
   APT: '/icons/apt.png',
