@@ -7,6 +7,8 @@ import { useWallet as useSolanaWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import '@solana/wallet-adapter-react-ui/styles.css';
 
+// Import the new icon
+import suiIcon from '../../icons/sui.webp'; // Adjust path
 
 // Combined Dropdown/Status component for connected wallets
 const ConnectedWalletDisplay = () => {
@@ -57,8 +59,8 @@ const ConnectedWalletDisplay = () => {
             onClick={() => setSuiOpen(!suiOpen)}
             className="btn-outline flex items-center space-x-2 group"
           >
-             {/* Use local icon path */}
-             <img src="/icons/sui.png" alt="Sui" className="w-4 h-4" />
+             {/* Use imported icon */}
+             <img src={suiIcon} alt="Sui" className="w-4 h-4" />
             <span>{suiDisplayAddress}</span>
             <ChevronDown size={16} className={`transition-transform duration-200 ${suiOpen ? 'rotate-180' : ''}`} />
           </button>
