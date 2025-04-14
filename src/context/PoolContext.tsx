@@ -43,6 +43,13 @@ export interface Pool {
   utilization: number;
 }
 
+// Type for data needed to create a new pool in the context
+export type NewPoolInput = Omit<Pool, 'id' | 'volumeHistory' | 'impermanentLoss' | 'utilization' | 'change24h' | 'tvl' | 'token1Balance' | 'token2Balance'> & {
+  token1Amount: string; // Add initial amounts
+  token2Amount: string;
+};
+
+
 // Define the initial mock pools data (same as in PoolsPage)
 const INITIAL_MOCK_POOLS: Pool[] = [
     { id: '1', name: 'SUI-USDC', tvl: '$2500000', volume24h: '$450000', apr: '12.5%', chain: 'Sui', token1: 'SUI', token2: 'USDC', fee: '0.3%', token1Balance: '1.25M', token2Balance: '1.25M', change24h: '+5.2%', volumeHistory: Array.from({ length: 24 }, (_, i) => ({ time: `${i}:00`, value: Math.random() * 10000 })), impermanentLoss: '-0.5%', rewards: ['SUI'], utilization: 75 },
@@ -53,7 +60,7 @@ const INITIAL_MOCK_POOLS: Pool[] = [
 
 interface PoolContextType {
   pools: Pool[];
-  addPool: (newPoolData: Omit<Pool, 'id' | 'volumeHistory' | 'impermanentLoss' | 'utilization' | 'change24h' | 'token1Balance' | 'token2Balance'>) => void;
+  addPool: (newPoolData: NewPoolInput) => void; // Use the new input type
   getPoolById: (id: string) => Pool | undefined;
 }
 
@@ -80,16 +87,23 @@ export const PoolProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [pools]);
 
-  const addPool = (newPoolData: Omit<Pool, 'id' | 'volumeHistory' | 'impermanentLoss' | 'utilization' | 'change24h' | 'token1Balance' | 'token2Balance'>) => {
+  // Updated addPool function to accept NewPoolInput
+  const addPool = (newPoolData: NewPoolInput) => {
+    // Basic placeholder for TVL calculation - assumes 1:1 USD value for simplicity
+    // TODO: Implement proper price fetching/conversion for accurate TVL
+    const calculatedTvl = (parseFloat(newPoolData.token1Amount) || 0) + (parseFloat(newPoolData.token2Amount) || 0);
+
     const newPool: Pool = {
-      ...newPoolData,
+      ...newPoolData, // Spread the provided data first
       id: `pool-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, // Generate unique ID
-      // Add default/placeholder values for fields not provided by CreatePoolPage
-      tvl: '$0',
+      // Use provided amounts for balances
+      token1Balance: newPoolData.token1Amount,
+      token2Balance: newPoolData.token2Amount,
+      // Set initial TVL based on amounts (simple placeholder)
+      tvl: `$${calculatedTvl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      // Add default/placeholder values for other fields
       volume24h: '$0',
-      apr: '0.0%',
-      token1Balance: '0',
-      token2Balance: '0',
+      apr: '0.0%', // APR would need calculation based on fees/rewards
       change24h: '+0.0%',
       volumeHistory: Array.from({ length: 24 }, (_, i) => ({ time: `${i}:00`, value: 0 })),
       impermanentLoss: '0.0%',

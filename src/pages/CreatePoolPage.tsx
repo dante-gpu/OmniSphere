@@ -144,13 +144,15 @@ const CreatePoolPage = () => {
                chain: selectedChain,
                token1: token1.symbol as PoolToken,
                token2: token2.symbol as PoolToken,
-               fee: '0.3%', // Example default fee
-               // Provide required fields with default/placeholder values
-               tvl: '$0',
+               fee: '0.3%',
+               // Pass initial amounts for context to use
+               token1Amount: token1Amount,
+               token2Amount: token2Amount,
+               // Add required placeholder values for properties not omitted in NewPoolInput
                volume24h: '$0',
                apr: '0.0%',
-               rewards: [],
-               // Other fields will get defaults in addPool function in context
+               rewards: []
+               // tvl, token1Balance, token2Balance etc. are handled by the context's addPool function
              });
              // Reset form after successful addition
              setToken1(null);

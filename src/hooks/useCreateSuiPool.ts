@@ -30,14 +30,17 @@ export function useCreateSuiPool() {
       console.log(`DEMO: Initial Amounts: ${input.token1Amount} ${input.token1Symbol}, ${input.token2Amount} ${input.token2Symbol}`);
 
       try {
-          console.log("DEMO: Requesting Sui wallet signature for pool creation...");
+          // Simulate constructing the transaction including token transfers
+          console.log(`DEMO: Simulating transfer of ${input.token1Amount} ${input.token1Symbol} and ${input.token2Amount} ${input.token2Symbol} for pool creation.`);
+          console.log("DEMO: Requesting Sui wallet signature...");
           const txb = new TransactionBlock();
-          // Create a minimal transaction: transfer 0 MIST to self to trigger signing
+          // Create a minimal transaction: transfer 0 MIST to self to trigger signing (actual transfer logic would go here)
           const [coin] = txb.splitCoins(txb.gas, [txb.pure(0)]);
           txb.transferObjects([coin], txb.pure(suiWallet.account.address));
 
+          // Cast txb to 'any' to bypass potential type mismatch issue with the wallet kit function
           const result = await suiWallet.signAndExecuteTransactionBlock({
-              transactionBlock: txb,
+              transactionBlock: txb as any,
           });
           console.log("DEMO: Sui wallet signed and executed successfully:", result);
           return { success: true, poolId: `fake-sui-pool-${Date.now()}`, txDigest: result.digest };

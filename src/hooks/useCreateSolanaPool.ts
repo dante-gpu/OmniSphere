@@ -27,7 +27,11 @@ export function useCreateSolanaPool() {
       console.log(`DEMO: Initial Amounts: ${input.token1Amount} ${input.token1Symbol}, ${input.token2Amount} ${input.token2Symbol}`);
 
       try {
+          // Simulate constructing the transaction including token transfers
+          console.log(`DEMO: Simulating transfer of ${input.token1Amount} ${input.token1Symbol} and ${input.token2Amount} ${input.token2Symbol} for pool creation.`);
+          console.log("DEMO: Requesting Solana wallet signature...");
           const dummyTx = new SolanaTransaction().add(
+              // Create a minimal transaction: transfer 0 lamports to self to trigger signing (actual transfer logic would go here)
               SystemProgram.transfer({
                   fromPubkey: solanaWallet.publicKey,
                   toPubkey: solanaWallet.publicKey,
