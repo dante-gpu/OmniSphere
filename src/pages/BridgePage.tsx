@@ -34,6 +34,13 @@ import { Button } from '../components/ui/Button'; // Assuming named export
 // import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/Select'; // Using standard select
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'; // Use named import
 
+// Import the new icons
+import suiIcon from '../icons/sui.webp';
+import solIcon from '../icons/sol.svg';
+import usdcIcon from '../icons/usdc.png';
+import usdtIcon from '../icons/tether.png';
+// Note: Other icons like btc, eth, avax, bonk are not used on this page currently
+
 dayjs.extend(relativeTime); // Extend dayjs with the plugin
 
 // Use Wormhole SDK Chain type
@@ -68,14 +75,16 @@ const BridgePage = () => {
   // Removed unused fees object
   // const fees = { ... };
 
+  // Use imported icons
   const chainIcons: Record<SupportedChainOption, string> = {
-    Sui: 'https://cryptologos.cc/logos/sui-sui-logo.png',
-    Solana: 'https://cryptologos.cc/logos/solana-sol-logo.png'
+    Sui: suiIcon, // Use imported icon
+    Solana: solIcon // Use imported icon
   };
 
+  // Use imported icons
   const tokenIcons: Record<TokenSymbolOption, string> = {
-    USDC: 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png',
-    USDT: 'https://cryptologos.cc/logos/tether-usdt-logo.png'
+    USDC: usdcIcon, // Use imported icon
+    USDT: usdtIcon // Use imported icon
   };
 
   const handleSwapChains = () => {
@@ -233,9 +242,9 @@ const BridgePage = () => {
             <div className="flex justify-center items-center pb-2 md:pb-0 md:relative">
               <Button
                 variant="outline"
-                size="icon"
+                // Removed invalid size="icon" prop
                 onClick={handleSwapChains}
-                className="md:absolute md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 z-10"
+                className="md:absolute md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 z-10 p-2" // Added padding for icon button look
                 disabled={isBridging}
               >
                 <ArrowRightLeft className="text-primary" size={20} />
@@ -333,6 +342,14 @@ const BridgePage = () => {
           {/* Fee Breakdown (Keep placeholders or implement dynamic quoting later) */}
           <div className="bg-neutral-50 rounded-xl p-4 mb-6">
             {/* ... fee breakdown UI ... */}
+             <div className="flex justify-between text-sm text-neutral-600">
+                <span>Estimated Fees</span>
+                <span>~0.01 {fromChain === 'Sui' ? 'SUI' : 'SOL'} + Wormhole Fee</span>
+             </div>
+             <div className="flex justify-between text-sm text-neutral-600 mt-1">
+                <span>Estimated Time</span>
+                <span>2-5 minutes</span>
+             </div>
           </div>
 
           <Button onClick={handleBridge} disabled={isBridging} className="w-full">
@@ -359,9 +376,37 @@ const BridgePage = () => {
 
         {/* Info Cards */}
         {/* ... info cards UI ... */}
+         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+            <div className="bg-white rounded-xl shadow-card p-6 flex items-start gap-4">
+                <Clock className="text-primary w-8 h-8 mt-1 flex-shrink-0" />
+                <div>
+                    <h3 className="font-semibold mb-1">Fast Transfers</h3>
+                    <p className="text-sm text-neutral-600">Leverage Wormhole for quick cross-chain asset bridging.</p>
+                </div>
+            </div>
+             <div className="bg-white rounded-xl shadow-card p-6 flex items-start gap-4">
+                <Shield className="text-primary w-8 h-8 mt-1 flex-shrink-0" />
+                <div>
+                    <h3 className="font-semibold mb-1">Secure Bridge</h3>
+                    <p className="text-sm text-neutral-600">Utilizes Wormhole's guardian network for secure VAA verification.</p>
+                </div>
+            </div>
+             <div className="bg-white rounded-xl shadow-card p-6 flex items-start gap-4">
+                <Zap className="text-primary w-8 h-8 mt-1 flex-shrink-0" />
+                <div>
+                    <h3 className="font-semibold mb-1">Low Fees</h3>
+                    <p className="text-sm text-neutral-600">Benefit from competitive bridging fees.</p>
+                </div>
+            </div>
+        </div>
 
         {/* Transaction History */}
         {/* ... transaction history UI ... */}
+         <div className="bg-white rounded-xl shadow-card p-6 mt-8">
+             <h3 className="text-xl font-bold mb-4">Bridge History</h3>
+             <p className="text-neutral-500 text-center py-4">No recent bridge transactions.</p>
+             {/* TODO: Implement transaction history display */}
+         </div>
       </div>
     </div>
   );

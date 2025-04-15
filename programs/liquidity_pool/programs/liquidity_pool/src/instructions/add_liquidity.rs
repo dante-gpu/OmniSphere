@@ -1,7 +1,10 @@
 use anchor_lang::prelude::*;
-    use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer, MintTo};
-    use crate::state::Pool;
-    use crate::errors::ErrorCode; // Assuming you'll create an errors.rs file later
+use anchor_spl::{
+    associated_token::AssociatedToken, // Import AssociatedToken
+    token::{self, Mint, Token, TokenAccount, Transfer, MintTo}
+};
+use crate::state::Pool;
+use crate::errors::ErrorCode; // Assuming you'll create an errors.rs file later
 
     #[derive(Accounts)]
     pub struct AddLiquidity<'info> {

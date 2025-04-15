@@ -26,6 +26,7 @@ export const addLiquiditySchema = z.object({
 });
 
 export const removeLiquiditySchema = z.object({
+  // TODO: Add chainId and poolId here as well if needed for remove liquidity
   percentage: z
     .number()
     .min(0, 'Percentage must be greater than 0')

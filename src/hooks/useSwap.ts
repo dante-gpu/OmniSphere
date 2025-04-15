@@ -3,7 +3,7 @@ import { TransactionBlock } from '@mysten/sui.js/transactions';
 // Potentially need SuiClient and getFullnodeUrl for reading data later
 // import { SuiClient, getFullnodeUrl } from '@mysten/sui.js/client';
 import toast from 'react-hot-toast';
-import { parseUnits, formatUnits } from 'ethers'; // For amount conversion
+import { utils } from 'ethers'; // For amount conversion
 
 // TODO: Replace with actual deployed Package ID
 const OMNI_PACKAGE_ID = '0xOMNI_PACKAGE_ID_PLACEHOLDER';
@@ -60,10 +60,10 @@ export function useSwap() {
 
     try {
       // 1. Parse amount using decimals
-      const amountBigInt = parseUnits(fromAmount, fromToken.decimals);
+      const amountBigInt = utils.parseUnits(fromAmount, fromToken.decimals);
 
       // 2. Get the specific coin object to use as input (CRITICAL: Needs real implementation)
-      const inputCoinObjectId = await getInputCoinObject(suiWallet, fromToken.type, amountBigInt);
+      const inputCoinObjectId = await getInputCoinObject(suiWallet, fromToken.type, amountBigInt.toBigInt());
       if (!inputCoinObjectId) {
         throw new Error(`Could not find a suitable coin object for ${fromToken.symbol}`);
       }

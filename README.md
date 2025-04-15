@@ -14,6 +14,23 @@
 
 ---
 
+## ✨ Deployment Status & Demo
+
+🚀 **Contracts Deployed!**
+
+The core smart contracts for OmniSphere have been successfully deployed:
+
+*   **Sui Testnet:** Package ID `0xee971f83a4e21e2e1c129d4ea7478451a161fe7efd96e76c576a4df04bda6f4e`. See [Section 4.6](#46-deployment-information-%EF%B8%8F) for details.
+*   **Solana Devnet:** Program ID `AGHWA8Ff6ZPzFZxjHsH7CRFiwXSucXLhbZ3SUQYYLNoZ`. See [Section 5.6](#56-deployment-information) for details.
+
+🎬 **Watch the Demo:**
+
+[![OmniSphere Demo](https://img.shields.io/badge/Watch%20Demo-ScreenStudio-informational)](https://screen.studio/share/XdI4weMv)
+
+[Click here to watch the OmniSphere demo video](https://screen.studio/share/XdI4weMv)
+
+---
+
 ## 📑 Table of Contents
 
 - [OmniSphere: Multi-Universe Liquidity Protocol](#omnisphere-multi-universe-liquidity-protocol)
@@ -234,20 +251,37 @@ graph TD
 - Object model and ownership structure
 
 ```move
-module omnisphere::types {
-    // Resource type with key ability can be stored in global storage
-    struct TokenPair has key {
-        id: UID,
-        token_x: TypeName,
-        token_y: TypeName
+/// Basic types for the OmniSphere protocol on Sui.
+module omnisphere_sui::types {
+
+    use sui::object::{Self, UID};
+    use sui::tx_context::{Self, TxContext};
+
+    /// Represents the status of a liquidity pool.
+    struct PoolStatus has copy, drop, store {
+        is_active: bool,
+        is_paused: bool,
     }
-    
-    // View struct without key ability - cannot be stored in global storage
-    struct PoolInfo has copy, drop {
-        token_x_reserve: u64,
-        token_y_reserve: u64,
-        fee_percentage: u64
+
+    /// Creates a new active pool status.
+    public fun new_active_status(): PoolStatus {
+        PoolStatus { is_active: true, is_paused: false }
     }
+
+    /// Represents the status of a bridge operation.
+    /// Placeholder for now.
+    struct BridgeStatus has copy, drop, store {
+        code: u8 // 0: Pending, 1: Completed, 2: Failed
+    }
+
+    /// Represents the type of bridge operation.
+    /// Placeholder for now.
+    struct BridgeOperation has copy, drop, store {
+        code: u8 // 0: CreatePoolMirror, 1: AddLiquidity, 2: RemoveLiquidity
+    }
+
+    // Add other shared types here as needed.
+
 }
 ```
 
@@ -258,21 +292,38 @@ module omnisphere::types {
 - Shared-object transaction model
 
 ```move
-// Example of Sui's ownership-based object model
-public fun create_pool<CoinTypeX, CoinTypeY>(
-    coin_x: Coin<CoinTypeX>,
-    coin_y: Coin<CoinTypeY>,
+// Example of Sui's ownership-based object model from liquidity_pool.move
+/// Creates a new liquidity pool for the given token pair and shares it.
+/// Takes the initial liquidity coins as input.
+public fun create_pool<CoinTypeA, CoinTypeB>(
+    coin_a: Coin<CoinTypeA>,
+    coin_b: Coin<CoinTypeB>,
     ctx: &mut TxContext
 ) {
-    // Creates a new object owned by the transaction sender
-    let pool = LiquidityPool {
+    let reserve_a_balance = coin::into_balance(coin_a);
+    let reserve_b_balance = coin::into_balance(coin_b);
+    let initial_liquidity_a = balance::value(&reserve_a_balance);
+    let initial_liquidity_b = balance::value(&reserve_b_balance);
+
+    // Create the Pool object
+    let pool = Pool<CoinTypeA, CoinTypeB> {
         id: object::new(ctx),
-        coin_x_reserve: coin::into_balance(coin_x),
-        coin_y_reserve: coin::into_balance(coin_y),
-        // ...
+        reserve_a: reserve_a_balance,
+        reserve_b: reserve_b_balance,
+        status: types::new_active_status(), // Assuming types module is imported
     };
-    
-    // Transfer the pool object to be shared
+
+    // Emit an event (assuming events module and function exist)
+    events::emit_pool_created(
+        object::uid_to_inner(&pool.id),
+        type_name::get<CoinTypeA>(),
+        type_name::get<CoinTypeB>(),
+        initial_liquidity_a,
+        initial_liquidity_b,
+        ctx
+    );
+
+    // Share the pool object so others can interact with it
     transfer::share_object(pool);
 }
 ```
@@ -415,193 +466,339 @@ omnisphere/
 ### 4.2 Liquidity Pool Module
 
 ```move
-module omnisphere::liquidity_pool {
-    use sui::object::{Self, UID};
+/// Core liquidity pool logic for OmniSphere on Sui.
+module omnisphere_sui::liquidity_pool {
+
+    use sui::object::{Self, ID, UID};
     use sui::transfer;
     use sui::tx_context::{Self, TxContext};
-    use sui::coin::{Self, Coin};
+    use sui::coin::{Self, Coin, TreasuryCap};
+    use sui::balance::{Self, Balance};
+    use sui::vec_map::{Self, VecMap};
     use sui::event;
-    
-    use omnisphere::types::{PoolId, PoolStatus};
-    use omnisphere::events::{LiquidityAdded, LiquidityRemoved};
-    use omnisphere::errors;
-    
-    // Object structures
-    struct LiquidityPool<phantom CoinTypeA, phantom CoinTypeB> has key {
+    use std::type_name::{Self, get as get_type_name, TypeName}; // Keep TypeName, remove get_address_bytes
+
+    use std::string::{Self, String as StdString}; // Alias std::string::String
+    use std::vector;
+
+    // Import from our other modules
+    use omnisphere_sui::types::{Self, PoolStatus};
+    use omnisphere_sui::events;
+
+    // --- Constants ---
+    // Add error constants later
+
+    // --- Structs ---
+
+    /// Represents a liquidity pool for a pair of tokens.
+    /// This object is shared.
+    struct Pool<phantom CoinTypeA, phantom CoinTypeB> has key {
         id: UID,
-        pool_id: PoolId,
-        coin_a_reserve: u64,
-        coin_b_reserve: u64,
-        lp_supply: u64,
-        fee_percentage: u64,
+        // Using Balance to store reserves, as Coins themselves cannot be stored directly in structs.
+        reserve_a: Balance<CoinTypeA>,
+        reserve_b: Balance<CoinTypeB>,
+        // LP token logic will be added later
+        // lp_supply: u64,
         status: PoolStatus,
-        protocol_fee: u64,
-        last_updated_at: u64,
+        // Add fee info later
+        // fee_percentage: u64,
     }
-    
-    struct LiquidityProviderToken<phantom CoinTypeA, phantom CoinTypeB> has key, store {
-        id: UID,
-        pool_id: PoolId,
-        amount: u64,
-    }
-    
-    // Core functions
+
+    // --- Public Functions ---
+
+    /// Creates a new liquidity pool for the given token pair and shares it.
+    /// Takes the initial liquidity coins as input.
     public fun create_pool<CoinTypeA, CoinTypeB>(
         coin_a: Coin<CoinTypeA>,
         coin_b: Coin<CoinTypeB>,
-        fee_percentage: u64,
         ctx: &mut TxContext
     ) {
-        // Implementation logic...
+        let reserve_a_balance = coin::into_balance(coin_a);
+        let reserve_b_balance = coin::into_balance(coin_b);
+        let initial_liquidity_a = balance::value(&reserve_a_balance);
+        let initial_liquidity_b = balance::value(&reserve_b_balance);
+
+        let pool = Pool<CoinTypeA, CoinTypeB> {
+            id: object::new(ctx),
+            reserve_a: reserve_a_balance,
+            reserve_b: reserve_b_balance,
+            status: types::new_active_status(),
+        };
+
+        // Emit event
+        events::emit_pool_created(
+            object::uid_to_inner(&pool.id),
+            get_type_name<CoinTypeA>(), // Pass TypeName directly
+            get_type_name<CoinTypeB>(), // Pass TypeName directly
+            initial_liquidity_a,
+            initial_liquidity_b,
+            ctx
+        );
+
+        // Share the pool object so others can interact with it
+        transfer::share_object(pool);
     }
-    
+
+    /// Adds liquidity to an existing pool.
+    /// For simplicity, this version doesn't calculate or mint LP tokens yet.
     public fun add_liquidity<CoinTypeA, CoinTypeB>(
-        pool: &mut LiquidityPool<CoinTypeA, CoinTypeB>,
+        pool: &mut Pool<CoinTypeA, CoinTypeB>,
         coin_a: Coin<CoinTypeA>,
         coin_b: Coin<CoinTypeB>,
         ctx: &mut TxContext
-    ): LiquidityProviderToken<CoinTypeA, CoinTypeB> {
-        // Implementation logic...
+    ) {
+        // TODO: Check pool status is active
+
+        let amount_a_added = coin::value(&coin_a);
+        let amount_b_added = coin::value(&coin_b);
+
+        // Deposit the coins into the pool's balances
+        let balance_a = coin::into_balance(coin_a);
+        balance::join(&mut pool.reserve_a, balance_a);
+
+        let balance_b = coin::into_balance(coin_b);
+        balance::join(&mut pool.reserve_b, balance_b);
+
+        // Emit event
+        events::emit_liquidity_added(
+            object::uid_to_inner(&pool.id),
+            tx_context::sender(ctx),
+            amount_a_added,
+            amount_b_added,
+            ctx
+        );
+
+        // TODO: Calculate and mint LP tokens
     }
-    
-    public fun remove_liquidity<CoinTypeA, CoinTypeB>(
-        pool: &mut LiquidityPool<CoinTypeA, CoinTypeB>,
-        lp_token: LiquidityProviderToken<CoinTypeA, CoinTypeB>,
-        ctx: &mut TxContext
-    ): (Coin<CoinTypeA>, Coin<CoinTypeB>) {
-        // Implementation logic...
+
+    // --- View Functions (Read-only) ---
+
+    /// Returns the current reserves of the pool.
+    public fun get_reserves<CoinTypeA, CoinTypeB>(
+        pool: &Pool<CoinTypeA, CoinTypeB>
+    ): (u64, u64) {
+        (balance::value(&pool.reserve_a), balance::value(&pool.reserve_b))
     }
-    
-    // Other helper functions...
+
+    /// Returns the status of the pool.
+    public fun get_status<CoinTypeA, CoinTypeB>(
+        pool: &Pool<CoinTypeA, CoinTypeB>
+    ): PoolStatus {
+        pool.status
+    }
+
+    /// Returns the object ID of the pool.
+    public fun get_pool_id<CoinTypeA, CoinTypeB>(
+        pool: &Pool<CoinTypeA, CoinTypeB>
+    ): ID {
+        object::uid_to_inner(&pool.id)
+    }
+
+    // --- Test Functions ---
+    // Add tests later in a separate file or module
 }
 ```
 
 ### 4.3 Wormhole Bridge Interface
 
 ```move
-module omnisphere::bridge_interface {
-    use sui::object::{Self, UID};
-    use sui::transfer;
+/// Placeholder module for Wormhole bridge interactions.
+/// In a real implementation, this would interact with the Wormhole Core Bridge package.
+module omnisphere_sui::bridge_interface {
+
+    use sui::object::{Self, ID, UID}; // Import Self for object functions
     use sui::tx_context::{Self, TxContext};
-    use sui::coin::{Self, Coin};
-    
-    use wormhole::state::{State as WormholeState};
-    use wormhole::vaa::{Self, VAA};
-    use wormhole::message;
-    
-    use omnisphere::liquidity_pool::{Self, LiquidityPool};
-    use omnisphere::events::{BridgeInitiated, BridgeCompleted};
-    use omnisphere::types::{BridgeOperation, BridgeStatus};
-    
-    // Object structures
-    struct BridgeRequest has key {
-        id: UID,
-        source_chain: u16,
-        target_chain: u16,
-        operation: BridgeOperation,
-        payload: vector<u8>,
-        status: BridgeStatus,
-        sequence: u64,
-        created_at: u64,
-    }
-    
-    // Bridge functions
-    public fun initiate_bridge<CoinTypeA, CoinTypeB>(
-        pool: &mut LiquidityPool<CoinTypeA, CoinTypeB>,
-        wormhole_state: &mut WormholeState,
-        target_chain_id: u16,
-        target_address: vector<u8>,
-        operation: BridgeOperation,
-        ctx: &mut TxContext
-    ): BridgeRequest {
-        // Bridge initiation logic...
-    }
-    
-    public fun process_vaa(
-        request: &mut BridgeRequest,
-        wormhole_state: &WormholeState,
-        vaa: VAA,
+    use sui::event;
+    use std::vector; // Import vector
+
+    // Import from our other modules
+    use omnisphere_sui::liquidity_pool::{Self, Pool};
+    use omnisphere_sui::types::{Self, BridgeOperation};
+    use omnisphere_sui::events;
+
+    // --- Constants ---
+    // Placeholder Wormhole Chain IDs (refer to Wormhole documentation for actual IDs)
+    const SOLANA_CHAIN_ID: u16 = 1;
+    const SUI_CHAIN_ID: u16 = 21; // Example, check official docs
+
+    // --- Public Functions ---
+
+    /// Simulates publishing a message to Wormhole to create a pool mirror on the target chain.
+    /// In a real implementation, this would call the Wormhole Core Bridge `publish_message` function.
+    public fun publish_create_pool_message<CoinTypeA, CoinTypeB>(
+        pool: &Pool<CoinTypeA, CoinTypeB>,
+        target_chain_id: u16, // e.g., SOLANA_CHAIN_ID
+        target_program_address: vector<u8>, // Address of the OmniSphere program on the target chain
         ctx: &mut TxContext
     ) {
-        // VAA processing logic...
+        // TODO: In real implementation, interact with Wormhole Core Bridge package
+        // let sequence = wormhole::publish_message(... payload ...);
+
+        // --- Simulation ---
+        // For now, just emit an event simulating the message publication.
+        // The sequence number would normally come from the Wormhole contract.
+        let simulated_sequence = (tx_context::epoch_timestamp_ms(ctx) % 10000u64); // Use u64 literal for modulo, remove 'as'
+
+        // Define the payload (what data needs to be sent to the target chain)
+        // This needs to be defined based on what the Solana program expects.
+        // Example: Pool ID, Token A Type, Token B Type
+        let payload = vector::empty<u8>(); // Use vector::empty()
+        // vector::push_back(&mut payload, object::id_to_bytes(&liquidity_pool::get_pool_id(pool))); // Example payload data using the getter
+
+        events::emit_bridge_message_published(
+            liquidity_pool::get_pool_id(pool), // Use the getter function from the liquidity_pool module
+            target_chain_id,
+            target_program_address,
+            0u8, // Pass the u8 code directly for CreatePoolMirror
+            payload,
+            simulated_sequence,
+            ctx
+        );
+        // --- End Simulation ---
     }
-    
-    // Other helper functions...
+
+    // Add functions for other bridge operations (add/remove liquidity cross-chain) later.
 }
 ```
 
 ### 4.4 Event Structures
 
 ```move
-module omnisphere::events {
+/// Events emitted by the OmniSphere protocol on Sui.
+module omnisphere_sui::events {
+
+    use sui::object::{ID};
+    use sui::tx_context::{Self, TxContext}; // Import Self as tx_context
     use sui::event;
-    use omnisphere::types::{PoolId, BridgeOperation, BridgeStatus};
-    
-    // Liquidity events
+    use std::type_name::{TypeName}; // Import TypeName
+
+    /// Emitted when a new liquidity pool is created.
+    struct PoolCreated has copy, drop {
+        pool_id: ID, // The ID of the newly created Pool object
+        creator: address, // Address that created the pool
+        token_a_type: TypeName, // Changed to TypeName
+        token_b_type: TypeName, // Changed to TypeName
+        initial_liquidity_a: u64,
+        initial_liquidity_b: u64,
+        timestamp_ms: u64,
+    }
+
+    /// Emitted when liquidity is added to a pool.
     struct LiquidityAdded has copy, drop {
-        pool_id: PoolId,
+        pool_id: ID,
         provider: address,
-        coin_a_amount: u64,
-        coin_b_amount: u64,
-        lp_tokens_minted: u64,
-        timestamp: u64,
+        token_a_added: u64,
+        token_b_added: u64,
+        // lp_tokens_minted: u64, // Add later when LP tokens are implemented
+        timestamp_ms: u64,
     }
-    
-    struct LiquidityRemoved has copy, drop {
-        pool_id: PoolId,
+
+    /// Emitted when a cross-chain operation (like creating a pool mirror) is initiated via Wormhole.
+    /// This event serves as a signal that a VAA should be expected.
+    struct BridgeMessagePublished has copy, drop {
+        sender_pool_id: ID, // ID of the pool initiating the message
+        target_chain_id: u16, // Wormhole Chain ID of the target chain (e.g., Solana = 1)
+        target_address: vector<u8>, // Address on the target chain (e.g., Solana program address or PDA)
+        operation_type: u8, // Corresponds to types::BridgeOperation code
+        payload: vector<u8>, // The actual data being sent
+        sequence: u64, // Wormhole message sequence number
+        timestamp_ms: u64,
+    }
+
+    // --- Event Emission Functions ---
+
+    public fun emit_pool_created( // Changed to public
+        pool_id: ID,
+        token_a_type: TypeName, // Changed parameter type
+        token_b_type: TypeName, // Changed parameter type
+        initial_liquidity_a: u64,
+        initial_liquidity_b: u64,
+        ctx: &TxContext
+    ) {
+        event::emit(PoolCreated {
+            pool_id,
+            creator: tx_context::sender(ctx),
+            token_a_type,
+            token_b_type,
+            initial_liquidity_a,
+            initial_liquidity_b,
+            timestamp_ms: tx_context::epoch_timestamp_ms(ctx),
+        });
+    }
+
+     public fun emit_liquidity_added( // Changed to public
+        pool_id: ID,
         provider: address,
-        coin_a_amount: u64,
-        coin_b_amount: u64,
-        lp_tokens_burned: u64,
-        timestamp: u64,
+        token_a_added: u64,
+        token_b_added: u64,
+        ctx: &TxContext
+    ) {
+        event::emit(LiquidityAdded {
+            pool_id,
+            provider,
+            token_a_added,
+            token_b_added,
+            timestamp_ms: tx_context::epoch_timestamp_ms(ctx),
+        });
     }
-    
-    // Bridge events
-    struct BridgeInitiated has copy, drop {
-        request_id: address,
-        source_chain: u16,
-        target_chain: u16,
-        operation: BridgeOperation,
-        sequence: u64,
-        timestamp: u64,
+
+    public fun emit_bridge_message_published( // Changed to public
+        sender_pool_id: ID,
+        target_chain_id: u16,
+        target_address: vector<u8>,
+        operation_type: u8,
+        payload: vector<u8>,
+        sequence: u64, // This sequence number comes from the Wormhole publish_message call
+        ctx: &TxContext
+    ) {
+        event::emit(BridgeMessagePublished {
+            sender_pool_id,
+            target_chain_id,
+            target_address,
+            operation_type,
+            payload,
+            sequence,
+            timestamp_ms: tx_context::epoch_timestamp_ms(ctx),
+        });
     }
-    
-    struct BridgeCompleted has copy, drop {
-        request_id: address,
-        status: BridgeStatus,
-        sequence: u64,
-        timestamp: u64,
-    }
-    
-    // Event emission functions...
+
 }
 ```
 
 ### 4.5 Type Definitions
 
 ```move
-module omnisphere::types {
-    // Pool identifier type (32 bytes)
-    struct PoolId has copy, drop, store {
-        data: vector<u8>
-    }
-    
-    // Pool status enum
+/// Basic types for the OmniSphere protocol on Sui.
+module omnisphere_sui::types {
+
+    use sui::object::{Self, UID};
+    use sui::tx_context::{Self, TxContext};
+
+    /// Represents the status of a liquidity pool.
     struct PoolStatus has copy, drop, store {
-        code: u8 // 0: Active, 1: Paused, 2: Deprecated
+        is_active: bool,
+        is_paused: bool,
     }
-    
-    // Bridge operation enum
-    struct BridgeOperation has copy, drop, store {
-        code: u8 // 0: AddLiquidity, 1: RemoveLiquidity, 2: UpdatePool, 3: ConfirmBridge
+
+    /// Creates a new active pool status.
+    public fun new_active_status(): PoolStatus {
+        PoolStatus { is_active: true, is_paused: false }
     }
-    
-    // Bridge status enum
+
+    /// Represents the status of a bridge operation.
+    /// Placeholder for now.
     struct BridgeStatus has copy, drop, store {
         code: u8 // 0: Pending, 1: Completed, 2: Failed
     }
-    
-    // Helper functions for type construction and validation...
+
+    /// Represents the type of bridge operation.
+    /// Placeholder for now.
+    struct BridgeOperation has copy, drop, store {
+        code: u8 // 0: CreatePoolMirror, 1: AddLiquidity, 2: RemoveLiquidity
+    }
+
+    // Add other shared types here as needed.
+
 }
 ```
 
@@ -650,31 +847,41 @@ programs/
 ### 5.2 Liquidity Pool Program
 
 ```rust
-// lib.rs
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Token, TokenAccount, Mint, Transfer};
+use anchor_spl::token::{self, Token, TokenAccount, Mint, Transfer, MintTo, Burn}; // Import necessary SPL token types
 
-mod instructions;
-mod state;
-mod errors;
+// Declare modules within this crate
+pub mod instructions;
+pub mod state;
+pub mod errors;
+pub mod payloads; // Declare payloads module
 
-use instructions::*;
-use state::*;
+// Import modules created earlier (relative path from this file's perspective)
+// Note: Anchor build might handle paths differently, but typically modules are declared relative to lib.rs
+// If build fails, we might need to adjust these paths or the workspace structure.
+// For now, assuming the build process correctly finds these modules within the workspace.
+// Use `crate::` to refer to modules within the same crate (program)
+use crate::instructions::*;
+use crate::state::*;
+use crate::errors::ErrorCode;
 
+// Declare the program ID - Using the placeholder from README.md
 declare_id!("GL6uWvwZAapbf54GQb7PwKxXrC6gnjyNcrBMeAvkh7mg");
 
 #[program]
-pub mod liquidity_pool {
-    use super::*;
-    
+pub mod liquidity_pool_program { // Renamed module to avoid conflict with crate name
+    use super::*; // Make items from outer scope available
+
+    // Instruction: Create a new liquidity pool
     pub fn create_pool(
         ctx: Context<CreatePool>,
         fee_percentage: u64,
-        pool_id: [u8; 32]
+        pool_id: [u8; 32] // Unique ID matching Sui side
     ) -> Result<()> {
         instructions::create_pool::handler(ctx, fee_percentage, pool_id)
     }
-    
+
+    // Instruction: Add liquidity to an existing pool
     pub fn add_liquidity(
         ctx: Context<AddLiquidity>,
         amount_a_desired: u64,
@@ -683,17 +890,18 @@ pub mod liquidity_pool {
         amount_b_min: u64
     ) -> Result<()> {
         instructions::add_liquidity::handler(
-            ctx, 
-            amount_a_desired, 
+            ctx,
+            amount_a_desired,
             amount_b_desired,
             amount_a_min,
             amount_b_min
         )
     }
-    
+
+    // Instruction: Remove liquidity from a pool
     pub fn remove_liquidity(
         ctx: Context<RemoveLiquidity>,
-        liquidity_amount: u64,
+        liquidity_amount: u64, // Amount of LP tokens to burn
         amount_a_min: u64,
         amount_b_min: u64
     ) -> Result<()> {
@@ -704,14 +912,38 @@ pub mod liquidity_pool {
             amount_b_min
         )
     }
-    
+
+    // Instruction: Process a Wormhole VAA
     pub fn process_vaa(
         ctx: Context<ProcessVAA>,
-        vaa_hash: [u8; 32]
+        vaa_hash: [u8; 32] // Identifier for the VAA to process
     ) -> Result<()> {
         instructions::process_vaa::handler(ctx, vaa_hash)
     }
+
+    // TODO: Add other instructions as needed (e.g., swap, update_fees, etc.)
 }
+
+// Optional: Define events if needed using #[event] macro
+/*
+#[event]
+pub struct LiquidityAdded {
+    pool: Pubkey,
+    user: Pubkey,
+    amount_a: u64,
+    amount_b: u64,
+    lp_tokens_minted: u64,
+}
+
+#[event]
+pub struct LiquidityRemoved {
+    pool: Pubkey,
+    user: Pubkey,
+    amount_a: u64,
+    amount_b: u64,
+    lp_tokens_burned: u64,
+}
+*/
 ```
 
 ### 5.3 Pool State Structure
@@ -726,34 +958,44 @@ pub struct Pool {
     pub authority: Pubkey,          // Pool PDA
     pub token_a_mint: Pubkey,       // Token A mint address
     pub token_b_mint: Pubkey,       // Token B mint address
-    pub token_a_account: Pubkey,    // Token A account
-    pub token_b_account: Pubkey,    // Token B account
-    pub lp_mint: Pubkey,            // LP token mint
-    pub fee_percentage: u64,        // Fee percentage (basis points)
-    pub total_liquidity: u64,       // Total LP token amount
-    pub pool_id: [u8; 32],          // Pool ID matching with Sui
-    pub status: u8,                 // Pool status (0: active, 1: paused)
-    pub last_updated_at: i64,       // Last update timestamp
-    pub protocol_fee: u64,          // Protocol fee
-    pub bump: u8,                   // PDA bump seed
+    pub token_a_account: Pubkey,    // Token A account (PDA owned by authority)
+    pub token_b_account: Pubkey,    // Token B account (PDA owned by authority)
+    pub lp_mint: Pubkey,            // LP token mint (Mint PDA owned by authority)
+    pub fee_percentage: u64,        // Fee percentage (basis points, e.g., 30 for 0.3%)
+    pub total_liquidity: u64,       // Total LP token amount currently minted
+    pub pool_id: [u8; 32],          // Unique pool identifier matching with Sui side
+    pub status: u8,                 // Pool status (0: active, 1: paused) - Consider using PoolStatus enum below
+    pub last_updated_at: i64,       // Last update timestamp (Unix timestamp)
+    pub protocol_fee_a: u64,        // Accumulated protocol fees in token A
+    pub protocol_fee_b: u64,        // Accumulated protocol fees in token B
+    pub bump: u8,                   // PDA bump seed for the authority
+    pub lp_mint_bump: u8,           // PDA bump seed for the LP mint
+    pub token_a_bump: u8,           // PDA bump seed for token A account
+    pub token_b_bump: u8,           // PDA bump seed for token B account
 }
 
 impl Pool {
-    pub const SIZE: usize = 8 +     // discriminator
-        32 +                        // authority
-        32 +                        // token_a_mint
-        32 +                        // token_b_mint
-        32 +                        // token_a_account
-        32 +                        // token_b_account
-        32 +                        // lp_mint
-        8 +                         // fee_percentage
-        8 +                         // total_liquidity
-        32 +                        // pool_id
-        1 +                         // status
-        8 +                         // last_updated_at
-        8 +                         // protocol_fee
-        1;                          // bump
+    // Calculate size based on fields
+    // Discriminator (8) + Pubkey (32 * 6) + u64 (5) + [u8; 32] (1) + u8 (1) + i64 (1) + u8 (4)
+    pub const SIZE: usize = 8 + (32 * 6) + (8 * 5) + 32 + 1 + 8 + 4; // = 285 bytes
 }
+
+// Enum for Pool Status (optional but good practice)
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq)]
+pub enum PoolStatus {
+    Active,
+    Paused,
+    Deprecated,
+}
+
+impl Default for PoolStatus {
+    fn default() -> Self {
+        PoolStatus::Active
+    }
+}
+
+// Implement conversion from u8 if needed, or use the enum directly in the Pool struct
+// For simplicity, the Pool struct uses u8 for status directly as shown in the README example.
 ```
 
 ### 5.4 VAA Processor
@@ -761,83 +1003,239 @@ impl Pool {
 ```rust
 // instructions/process_vaa.rs
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Token};
-use wormhole_anchor_sdk::{wormhole, token_bridge};
-
-use crate::state::*;
-use crate::errors::*;
+use anchor_spl::{
+    associated_token::AssociatedToken,
+    token::{self, Mint, MintTo, Token, TokenAccount, Transfer},
+};
+use crate::state::{Pool, BridgeRequest, BridgeStatus}; // Assuming BridgeRequest/Status might be used later for replay protection
+use crate::errors::ErrorCode;
+use crate::payloads::{AddLiquidityCompletionPayload, RemoveLiquidityCompletionPayload};
+use wormhole_anchor_sdk::wormhole; // Keep anchor sdk import for BridgeData etc.
+use wormhole_vaas::{Vaa, Readable, payloads::PayloadKind}; // Import Vaa, Readable, and PayloadKind
+use std::io::Cursor; // Import Cursor for reading from slice
+use borsh::BorshDeserialize; // Keep for our custom payload deserialization
+use crate::instructions::add_liquidity::mint_lp_tokens; // Assuming helper function exists
+use crate::instructions::remove_liquidity::transfer_pool_tokens; // Assuming helper function exists
+use hex; // Import hex for encoding
 
 #[derive(Accounts)]
 pub struct ProcessVAA<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
-    
-    #[account(mut)]
-    pub pool: Account<'info, Pool>,
-    
+
     #[account(
-        seeds = [b"authority", pool.pool_id.as_ref()],
-        bump = pool.bump,
+        seeds = [b"Bridge".as_ref()],
+        bump,
+        seeds::program = wormhole::program::ID // Assuming wormhole program ID is correctly imported/defined
+    )]
+    pub wormhole_bridge: Account<'info, wormhole::BridgeData>,
+
+    /// CHECK: Posted VAA account. Data is manually deserialized and verified.
+    /// Client is responsible for passing the correct account address.
+    #[account()]
+    pub posted_vaa: AccountInfo<'info>, // Load as AccountInfo
+
+    #[account(
+        mut,
+        seeds = [b"pool".as_ref(), pool.token_a_mint.key().as_ref(), pool.token_b_mint.key().as_ref()],
+        bump = pool.bump
+    )]
+    pub pool: Account<'info, Pool>,
+
+    /// CHECK: Authority PDA, seeds checked. Used as signer if needed.
+    #[account(
+        seeds = [b"authority".as_ref(), pool.key().as_ref()],
+        bump // Assuming the bump is stored/accessible, maybe on pool state?
     )]
     pub pool_authority: AccountInfo<'info>,
-    
-    // Wormhole accounts
+
+    #[account(address = pool.token_a_mint @ ErrorCode::InvalidMint)]
+    pub token_a_mint: Account<'info, Mint>,
+    #[account(address = pool.token_b_mint @ ErrorCode::InvalidMint)]
+    pub token_b_mint: Account<'info, Mint>,
+
+    #[account(
+        mut,
+        seeds = [b"token_a".as_ref(), pool.key().as_ref()],
+        bump = pool.token_a_bump,
+        constraint = token_a_account.key() == pool.token_a_account @ ErrorCode::InvalidPoolTokenAccount
+    )]
+    pub token_a_account: Account<'info, TokenAccount>,
+
+    #[account(
+        mut,
+        seeds = [b"token_b".as_ref(), pool.key().as_ref()],
+        bump = pool.token_b_bump,
+        constraint = token_b_account.key() == pool.token_b_account @ ErrorCode::InvalidPoolTokenAccount
+    )]
+    pub token_b_account: Account<'info, TokenAccount>,
+
+    #[account(
+        mut,
+        seeds = [b"lp_mint".as_ref(), pool.key().as_ref()],
+        bump = pool.lp_mint_bump,
+        constraint = lp_mint.key() == pool.lp_mint @ ErrorCode::InvalidMint
+    )]
+    pub lp_mint: Account<'info, Mint>,
+
+    /// CHECK: Recipient address derived from VAA payload. Account type checked in handler.
     #[account(mut)]
-    pub vaa_account: AccountInfo<'info>,
-    
-    pub wormhole_bridge: AccountInfo<'info>,
-    pub token_bridge: AccountInfo<'info>,
-    
-    // System accounts
+    pub recipient: AccountInfo<'info>,
+
+    #[account(
+        init_if_needed,
+        payer = payer,
+        associated_token::mint = lp_mint,
+        associated_token::authority = recipient
+    )]
+    pub recipient_lp_token_account: Account<'info, TokenAccount>,
+
+    #[account(
+        init_if_needed,
+        payer = payer,
+        associated_token::mint = token_a_mint,
+        associated_token::authority = recipient
+    )]
+    pub recipient_token_a_account: Account<'info, TokenAccount>,
+
+    #[account(
+        init_if_needed,
+        payer = payer,
+        associated_token::mint = token_b_mint,
+        associated_token::authority = recipient
+    )]
+    pub recipient_token_b_account: Account<'info, TokenAccount>,
+
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
     pub rent: Sysvar<'info, Rent>,
-    pub clock: Sysvar<'info, Clock>,
 }
+
 
 pub fn handler(
     ctx: Context<ProcessVAA>,
-    vaa_hash: [u8; 32]
+    _vaa_hash: [u8; 32] // vaa_hash might not be needed if reading directly from account data
 ) -> Result<()> {
-    // 1. Verify VAA
-    let vaa = wormhole::parse_and_verify_vaa(
-        &ctx.accounts.wormhole_bridge,
-        &ctx.accounts.vaa_account,
-        vaa_hash,
-    )?;
-    
-    // 2. Parse VAA message content
-    let payload = vaa.payload.as_slice();
-    let operation = payload[0];
-    
-    // 3. Process by operation type
-    match operation {
-        0 => process_liquidity_addition(&ctx, &vaa, payload)?,
-        1 => process_liquidity_removal(&ctx, &vaa, payload)?,
-        _ => return Err(ErrorCode::InvalidBridgeOperation.into())
+    msg!("Processing VAA...");
+
+    // --- VAA Verification ---
+    // Manually deserialize and verify the VAA data from the account info
+    let posted_vaa_account_info = &ctx.accounts.posted_vaa;
+    let posted_vaa_data = posted_vaa_account_info.try_borrow_data()?;
+    // Use Vaa::read with Cursor
+    let mut cursor = Cursor::new(&posted_vaa_data[..]);
+    let vaa: Vaa = Vaa::read(&mut cursor)?;
+
+    // TODO: Add proper VAA verification logic here using wormhole_bridge data
+    // This typically involves checking the guardian signatures against the current guardian set
+    // stored in the wormhole_bridge account. This is crucial for security.
+    // Example placeholder:
+    // verify_vaa(&ctx.accounts.wormhole_bridge, &vaa)?;
+
+    // Optional: Check against replay using BridgeRequest account
+    /*
+    let bridge_request = &mut ctx.accounts.bridge_request;
+    require!(bridge_request.status == BridgeStatus::Pending, ErrorCode::VaaAlreadyProcessed);
+    */
+
+    // --- Payload Processing ---
+    // Extract the raw payload bytes by matching the PayloadKind enum
+    let payload: &[u8] = match &vaa.body.payload {
+        PayloadKind::Binary(bytes) => bytes.as_slice(), // Use Binary variant
+        _ => return err!(ErrorCode::UnsupportedPayloadKind), // Error for other variants
+    };
+    require!(!payload.is_empty(), ErrorCode::InvalidVaaPayload);
+
+    let operation_code = payload[0];
+    let specific_payload_data = &payload[1..];
+
+    msg!("VAA Details: Chain={}, Addr={}, Seq={}",
+        vaa.body.emitter_chain, // Access via vaa.body
+        hex::encode(vaa.body.emitter_address), // Access via vaa.body
+        vaa.body.sequence // Access via vaa.body
+    );
+    msg!("Processing Operation Code: {}", operation_code);
+
+    // TODO: Add checks for emitter_chain and emitter_address if needed
+    // require!(vaa.body.emitter_chain == SUI_CHAIN_ID, ErrorCode::InvalidEmitterChain);
+    // require!(vaa.body.emitter_address == SUI_BRIDGE_ADDRESS, ErrorCode::InvalidEmitterAddress);
+
+    match operation_code {
+        0 => { // AddLiquidityCompletion
+            msg!("Processing Add Liquidity Completion...");
+            let completion_payload = AddLiquidityCompletionPayload::try_from_slice(specific_payload_data)
+                .map_err(|_| error!(ErrorCode::InvalidVaaPayload))?;
+            msg!("Payload: {:?}", completion_payload);
+
+            require!(
+                ctx.accounts.recipient.key().to_bytes() == completion_payload.recipient_address,
+                ErrorCode::RecipientMismatch
+            );
+            require!(
+                ctx.accounts.pool.pool_id == completion_payload.original_pool_id,
+                ErrorCode::PoolIdMismatch
+            );
+
+            // Assuming mint_lp_tokens helper exists and takes necessary accounts/bumps
+            mint_lp_tokens(
+                ctx.accounts.token_program.to_account_info(),
+                ctx.accounts.lp_mint.to_account_info(),
+                ctx.accounts.recipient_lp_token_account.to_account_info(),
+                ctx.accounts.pool_authority.to_account_info(),
+                ctx.accounts.pool.key(),
+                completion_payload.lp_amount_to_mint,
+                ctx.bumps.pool_authority, // Assuming bump is accessible via ctx.bumps
+            )?;
+            msg!("Minted {} LP tokens to {}", completion_payload.lp_amount_to_mint, ctx.accounts.recipient.key());
+
+        }
+        1 => { // RemoveLiquidityCompletion
+            msg!("Processing Remove Liquidity Completion...");
+            let completion_payload = RemoveLiquidityCompletionPayload::try_from_slice(specific_payload_data)
+                 .map_err(|_| error!(ErrorCode::InvalidVaaPayload))?;
+            msg!("Payload: {:?}", completion_payload);
+
+            require!(
+                ctx.accounts.recipient.key().to_bytes() == completion_payload.recipient_address,
+                ErrorCode::RecipientMismatch
+            );
+            require!(
+                ctx.accounts.pool.pool_id == completion_payload.original_pool_id,
+                ErrorCode::PoolIdMismatch
+            );
+
+            // Assuming transfer_pool_tokens helper exists
+            transfer_pool_tokens(
+                ctx.accounts.token_program.to_account_info(),
+                ctx.accounts.token_a_account.to_account_info(),
+                ctx.accounts.recipient_token_a_account.to_account_info(),
+                ctx.accounts.pool_authority.to_account_info(),
+                ctx.accounts.pool.key(),
+                completion_payload.amount_a_to_transfer,
+                ctx.bumps.pool_authority, // Assuming bump is accessible via ctx.bumps
+            )?;
+             msg!("Transferred {} Token A to {}", completion_payload.amount_a_to_transfer, ctx.accounts.recipient.key());
+
+             transfer_pool_tokens(
+                ctx.accounts.token_program.to_account_info(),
+                ctx.accounts.token_b_account.to_account_info(),
+                ctx.accounts.recipient_token_b_account.to_account_info(),
+                ctx.accounts.pool_authority.to_account_info(),
+                ctx.accounts.pool.key(),
+                completion_payload.amount_b_to_transfer,
+                ctx.bumps.pool_authority, // Assuming bump is accessible via ctx.bumps
+            )?;
+            msg!("Transferred {} Token B to {}", completion_payload.amount_b_to_transfer, ctx.accounts.recipient.key());
+
+        }
+        _ => {
+            msg!("Unknown operation code in payload: {}", operation_code);
+            return err!(ErrorCode::InvalidBridgeOperation);
+        }
     }
-    
-    // 4. Record operation result
-    // Implementation logic...
-    
-    Ok(())
-}
 
-fn process_liquidity_addition(
-    ctx: &Context<ProcessVAA>,
-    vaa: &wormhole::VAA,
-    payload: &[u8]
-) -> Result<()> {
-    // Liquidity addition processing logic...
-    Ok(())
-}
-
-fn process_liquidity_removal(
-    ctx: &Context<ProcessVAA>,
-    vaa: &wormhole::VAA,
-    payload: &[u8]
-) -> Result<()> {
-    // Liquidity removal processing logic...
+    msg!("VAA processed successfully.");
     Ok(())
 }
 ```
@@ -974,7 +1372,7 @@ The Solana `liquidity_pool` program has been deployed to the **Solana Devnet**.
 |---------------------|-------------------------------------------------|
 | **Program ID**      | `AGHWA8Ff6ZPzFZxjHsH7CRFiwXSucXLhbZ3SUQYYLNoZ` |
 | **Network**         | Solana Devnet                                   |
-| **Upgrade Authority**| `Ck1aXzJJBd21mb5cWPfUJznin6MFinvu9oVt91be3863` |
+| **Upgrade Authority**| `temp_devnet_wallet.json`                       |
 
 You can explore the program using a Solana explorer like [Solana Explorer](https://explorer.solana.com/?cluster=devnet) with the Program ID above.
 

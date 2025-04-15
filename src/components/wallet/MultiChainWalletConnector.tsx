@@ -8,6 +8,10 @@ import '@solana/wallet-adapter-react-ui/styles.css'; // Keep Solana styles
 import { Button } from '../ui/Button'; // Use our Button component
 import { Modal } from '../ui/Modal'; // Use our Modal component
 
+// Import the new icons
+import suiIcon from '../../icons/sui.webp'; // Adjust path relative to this file
+import solIcon from '../../icons/sol.svg';   // Adjust path relative to this file
+
 // Helper to shorten addresses
 const shortenAddress = (address: string, chars = 4): string => {
   if (!address) return '';
@@ -35,17 +39,24 @@ const ConnectedDisplay: React.FC = () => {
         name: suiWallet.adapter?.name || 'Sui Wallet', // Changed wallet?.name to adapter?.name
         address: suiWallet.account.address,
         displayAddress: shortenAddress(suiWallet.account.address, 6),
-        icon: 'https://cryptologos.cc/logos/sui-sui-logo.png',
+        icon: suiIcon, // Use imported icon
         disconnect: () => suiWallet.disconnect(),
       });
     }
     if (solanaWallet.connected && solanaWallet.publicKey) {
+      // Note: solanaWallet.wallet?.adapter.icon might still point to external URL.
+      // If WalletMultiButton uses this internally, it might still fail.
+      // Providing a local fallback here.
+      const solanaIcon = solanaWallet.wallet?.adapter.icon;
+      // Basic check if the adapter icon is likely external
+      const useLocalSolanaIcon = !solanaIcon || solanaIcon.startsWith('http');
+
       wallets.push({
         type: 'solana' as const,
         name: solanaWallet.wallet?.adapter.name || 'Solana Wallet',
         address: solanaWallet.publicKey.toBase58(),
         displayAddress: shortenAddress(solanaWallet.publicKey.toBase58(), 4),
-        icon: solanaWallet.wallet?.adapter.icon || 'https://cryptologos.cc/logos/solana-sol-logo.png',
+        icon: useLocalSolanaIcon ? solIcon : solanaIcon, // Use imported icon as fallback
         disconnect: () => solanaWallet.disconnect(),
       });
     }
@@ -61,6 +72,7 @@ const ConnectedDisplay: React.FC = () => {
     const wallet = connectedWallets[0];
     // Use WalletMultiButton for Solana's connected state as it handles its own dropdown/modal
     if (wallet.type === 'solana') {
+       // WalletMultiButton might still try to load external icon from adapter
        return <WalletMultiButton style={{ height: '40px', lineHeight: '40px', borderRadius: '0.5rem' }} />;
     }
     // Use custom display for Sui
@@ -70,6 +82,7 @@ const ConnectedDisplay: React.FC = () => {
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
           className="btn-outline flex items-center space-x-2 group"
         >
+          {/* Ensure wallet.icon is used */}
           <img src={wallet.icon} alt={wallet.name} className="w-4 h-4" />
           <span>{wallet.displayAddress}</span>
           <ChevronDown size={16} className={`transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
@@ -113,6 +126,7 @@ const ConnectedDisplay: React.FC = () => {
               <div key={wallet.type} className="px-4 py-3 border-b border-neutral-100 last:border-b-0">
                 <div className="flex items-center justify-between mb-1">
                    <div className="flex items-center space-x-2">
+                      {/* Ensure wallet.icon is used */}
                       <img src={wallet.icon} alt={wallet.name} className="w-5 h-5" />
                       <span className="text-sm font-medium text-neutral-800">{wallet.name}</span>
                    </div>
@@ -165,7 +179,8 @@ const MultiChainWalletConnector: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                {/* Solana Connection */}
                <div className="flex flex-col items-center p-4 border border-neutral-200 rounded-lg">
-                  <img src="https://cryptologos.cc/logos/solana-sol-logo.png" alt="Solana" className="w-10 h-10 mb-3" />
+                  {/* Use imported icon */}
+                  <img src={solIcon} alt="Solana" className="w-10 h-10 mb-3" />
                   <h3 className="font-medium mb-3">Solana</h3>
                   {/* WalletMultiButton handles its own modal/selection */}
                   <WalletMultiButton style={{ width: '100%', height: '40px', lineHeight: '40px', borderRadius: '0.5rem' }} />
@@ -173,7 +188,8 @@ const MultiChainWalletConnector: React.FC = () => {
 
                {/* Sui Connection */}
                <div className="flex flex-col items-center p-4 border border-neutral-200 rounded-lg">
-                  <img src="https://cryptologos.cc/logos/sui-sui-logo.png" alt="Sui" className="w-10 h-10 mb-3" />
+                   {/* Use imported icon */}
+                  <img src={suiIcon} alt="Sui" className="w-10 h-10 mb-3" />
                   <h3 className="font-medium mb-3">Sui</h3>
                   {/* ConnectButton handles its own modal/selection - Added className for alignment */}
                   <ConnectButton

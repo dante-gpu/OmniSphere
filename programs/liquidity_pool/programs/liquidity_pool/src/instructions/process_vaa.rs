@@ -22,9 +22,10 @@ pub struct ProcessVAA<'info> {
     #[account(
         seeds = [b"Bridge".as_ref()],
         bump,
-        seeds::program = wormhole::program::ID
+        seeds::program = wormhole::program::ID // Assuming wormhole program ID is correctly imported/defined
     )]
-    pub wormhole_bridge: Account<'info, wormhole::BridgeData>,
+    /// CHECK: Wormhole bridge state account. Address is checked against wormhole::program::ID if needed. Data is owned by Wormhole program.
+    pub wormhole_bridge: AccountInfo<'info>, // Changed from Account<'info, wormhole::BridgeData>
 
     /// CHECK: Posted VAA account. Data is manually deserialized and verified.
     /// Client is responsible for passing the correct account address.

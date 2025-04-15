@@ -23,6 +23,8 @@ import SettingsPage from './pages/settings/SettingsPage';
 import NotificationsPage from './pages/settings/NotificationsPage';
 import SecurityPage from './pages/settings/SecurityPage';
 import SwapPage from './pages/SwapPage';
+import CreatePoolPage from './pages/CreatePoolPage'; // Import the new page
+import { PoolProvider } from './context/PoolContext'; // Import PoolProvider
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -53,9 +55,10 @@ function App() {
           {/* Sui Wallet Provider (already present) */}
           <WalletProvider>
             <QueryClientProvider client={queryClient}>
-              <Router>
-                <div className="min-h-screen flex flex-col">
-                  <Navbar />
+              <PoolProvider> {/* Wrap Router with PoolProvider */}
+                <Router>
+                  <div className="min-h-screen flex flex-col">
+                    <Navbar />
             <main className="flex-grow">
               <Routes>
                 <Route path="/" element={<HomePage />} />
@@ -70,6 +73,7 @@ function App() {
                 <Route path="/settings/notifications" element={<NotificationsPage />} />
                 <Route path="/settings/security" element={<SecurityPage />} />
                 <Route path="/swap" element={<SwapPage />} />
+                <Route path="/pools/new" element={<CreatePoolPage />} /> {/* Add route for creating pool */}
               </Routes>
             </main>
             <Footer />
@@ -98,7 +102,8 @@ function App() {
               },
             }}
           />
-                </Router>
+                  </Router>
+                </PoolProvider> {/* Close PoolProvider */}
               </QueryClientProvider>
             </WalletProvider>
           </WalletModalProvider>

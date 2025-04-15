@@ -1,15 +1,12 @@
-import React, { useState, useEffect } from 'react'; // Added useEffect
-import { useParams } from 'react-router-dom';
-// Removed duplicate useForm import if it existed, ensure it's imported if needed later
-// import { useForm } from 'react-hook-form';
-// import { zodResolver } from '@hookform/resolvers/zod';
-import { Button } from '../components/ui/Button'; // Import Button component
+import * as React from 'react'; // Use namespace import
+import { useState, useEffect } from 'react'; // Keep named imports separate
+import { useParams, Link } from 'react-router-dom';
 import {
+  ArrowLeft,
   ArrowLeftRight,
   Droplets,
   TrendingUp,
   ArrowUpDown,
-  Clock,
   ChevronDown,
   ExternalLink,
   ArrowRightLeft,
@@ -17,75 +14,98 @@ import {
   Minus,
   Settings,
   Info,
-  ArrowDown
+  Loader2 // Added for loading state
 } from 'lucide-react';
 import {
   AreaChart,
   Area,
-  XAxis,
-  YAxis,
-  Tooltip,
+  XAxis as RechartsXAxisType, // Use temporary alias for casting
+  YAxis as RechartsYAxisType, // Use temporary alias for casting
+  Tooltip as RechartsTooltipType, // Use temporary alias for casting
   ResponsiveContainer,
   CartesianGrid
 } from 'recharts';
+
+// Explicitly cast to FunctionComponent via unknown
+const RechartsXAxis = RechartsXAxisType as unknown as React.FunctionComponent<any>;
+const RechartsYAxis = RechartsYAxisType as unknown as React.FunctionComponent<any>;
+const RechartsTooltip = RechartsTooltipType as unknown as React.FunctionComponent<any>;
+
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 
-// Import our hook and validation schema
-import { useAddLiquidity } from '../hooks/useAddLiquidity';
-import { addLiquiditySchema, AddLiquidityInput } from '../lib/validations/pool';
+// Context and Hooks
+import { usePools, Pool } from '../context/PoolContext';
+import { useAddLiquidity } from '../hooks/useAddLiquidity'; // Assuming this hook exists
+import { addLiquiditySchema, AddLiquidityInput } from '../lib/validations/pool'; // Assuming this exists
+
+// UI Components
+import { Button } from '../components/ui/Button';
+import { Card, CardHeader, CardContent } from '../components/ui/Card'; // Use Card parts
+import { TokenInput } from '../components/forms/TokenInput';
+import { Alert } from '../components/ui/Alert';
+import { Tooltip as UITooltip } from '../components/ui/Tooltip'; // Import custom Tooltip with alias
+
+// Icons
+import suiIcon from '../icons/sui.webp';
+import solIcon from '../icons/sol.svg';
+import usdcIcon from '../icons/usdc.png';
+import usdtIcon from '../icons/tether.png';
+import ethIcon from '../icons/eth.png';
+import btcIcon from '../icons/btc.png';
+import avaxIcon from '../icons/avax.png';
+import bonkIcon from '../icons/bonk.png';
+import wmaticIcon from '../icons/wmatic.png';
+import aptIcon from '../icons/apt.png';
+import rayIcon from '../icons/ray.png';
+import srmIcon from '../icons/srm.png';
+import orcaIcon from '../icons/orca.png';
+const placeholderIcon = '/placeholder-icon.png';
 
 dayjs.extend(relativeTime);
 
-// Mock data - replace with real data from your API
-const performanceData = Array.from({ length: 30 }, (_, i) => ({
-  date: dayjs().subtract(29 - i, 'day').format('MMM DD'),
-  apy: 15 + Math.random() * 10,
-  volume: 100000 + Math.random() * 50000
-}));
+// Define token icons map
+const tokenIcons: { [key: string]: string } = {
+  SUI: suiIcon,
+  SOL: solIcon,
+  USDC: usdcIcon,
+  USDT: usdtIcon,
+  BTC: btcIcon,
+  ETH: ethIcon,
+  WETH: ethIcon,
+  APT: aptIcon,
+  WMATIC: wmaticIcon,
+  AVAX: avaxIcon,
+  SRM: srmIcon,
+  BONK: bonkIcon,
+  RAY: rayIcon,
+  ORCA: orcaIcon
+};
 
+// TODO: Replace with real data fetching if needed for other charts or features
+// const performanceData = Array.from({ length: 30 }, (_, i) => ({
+//   date: dayjs().subtract(29 - i, 'day').format('MMM DD'),
+//   apy: 15 + Math.random() * 10,
+//   volume: 100000 + Math.random() * 50000
+// }));
+
+// Mock data for recent transactions (replace with real data fetching)
 const recentTransactions = [
-  {
-    hash: '0x1234...5678',
-    type: 'Add Liquidity',
-    amount: '$50,000',
-    time: '2 minutes ago',
-    status: 'completed'
-  },
-  {
-    hash: '0x8765...4321',
-    type: 'Remove Liquidity',
-    amount: '$25,000',
-    time: '1 hour ago',
-    status: 'completed'
-  },
-  {
-    hash: '0x9876...5432',
-    type: 'Swap',
-    amount: '$10,000',
-    time: '2 hours ago',
-    status: 'completed'
-  }
+  { hash: '0x123...', type: 'Add Liquidity', amount: '$50,000', time: '2 minutes ago', status: 'completed' },
+  { hash: '0x876...', type: 'Remove Liquidity', amount: '$25,000', time: '1 hour ago', status: 'completed' },
+  { hash: '0x987...', type: 'Swap', amount: '$10,000', time: '2 hours ago', status: 'completed' }
 ];
 
 type TabType = 'add' | 'remove' | 'bridge';
 
-// Define a type for our fetched pool data
-interface PoolData {
-  id: string;
-  name: string;
-  onChainId: string;
-  chain: 'sui' | 'solana';
-  token1Symbol: string;
-  token2Symbol: string;
-  token1Decimals: number;
-  token2Decimals: number;
-  // Add other necessary pool details
-}
-
-
 const PoolDetailPage = () => {
-  const { id } = useParams<{ id: string }>(); // Ensure id is treated as string
+  const { id } = useParams<{ id: string }>();
+  const { getPoolById } = usePools();
+
+  const [poolData, setPoolData] = useState<Pool | null>(null);
+  const [isLoadingPool, setIsLoadingPool] = useState(true);
+  const [errorLoadingPool, setErrorLoadingPool] = useState<string | null>(null);
+
   const [activeTab, setActiveTab] = useState<TabType>('add');
   const [token1Amount, setToken1Amount] = useState('');
   const [token2Amount, setToken2Amount] = useState('');
@@ -93,144 +113,136 @@ const PoolDetailPage = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [removePercentage, setRemovePercentage] = useState(0);
 
-  // Instantiate the mutation hook
-  const addLiquidityMutation = useAddLiquidity();
-
-  // State for fetched pool data
-  const [poolData, setPoolData] = useState<PoolData | null>(null);
-  const [isLoadingPool, setIsLoadingPool] = useState(true);
-  const [errorLoadingPool, setErrorLoadingPool] = useState<string | null>(null);
-
-  // Effect to fetch pool data based on id
+  // Fetch pool data from context
   useEffect(() => {
-    if (!id) {
-      setErrorLoadingPool("Pool ID is missing from URL.");
-      setIsLoadingPool(false);
-      return;
-    }
-
     setIsLoadingPool(true);
     setErrorLoadingPool(null);
-    setPoolData(null); // Clear previous data
-
-    // Simulate API call
-    const timer = setTimeout(() => {
-      try {
-        let fetchedData: PoolData;
-        if (id === '1') {
-          fetchedData = {
-            id: '1',
-            name: 'SUI-USDC',
-            onChainId: 'SUI_POOL_OBJECT_ID_PLACEHOLDER_1',
-            chain: 'sui',
-            token1Symbol: 'SUI',
-            token2Symbol: 'USDC',
-            token1Decimals: 9,
-            token2Decimals: 6,
-          };
-        } else if (id === '2') {
-          fetchedData = {
-            id: '2',
-            name: 'SOL-USDT',
-            onChainId: 'SOL_POOL_PDA_PLACEHOLDER_2',
-            chain: 'solana',
-            token1Symbol: 'SOL',
-            token2Symbol: 'USDT',
-            token1Decimals: 9,
-            token2Decimals: 6,
-          };
-        } else {
-          // Handle unknown ID - throw an error or set specific state
-          throw new Error(`Pool with ID ${id} not found.`);
-        }
-        setPoolData(fetchedData);
-      } catch (error) {
-         console.error("Error fetching pool data:", error);
-         setErrorLoadingPool(error instanceof Error ? error.message : "Failed to load pool data.");
-      } finally {
-         setIsLoadingPool(false);
+    if (id) {
+      const foundPool = getPoolById(id);
+      if (foundPool) {
+        setPoolData(foundPool);
+        // Set initial amounts for the form if needed (e.g., for Add Liquidity)
+        // setToken1Amount(foundPool.token1Balance); // Example if needed
+        // setToken2Amount(foundPool.token2Balance); // Example if needed
+      } else {
+        setErrorLoadingPool(`Pool with ID ${id} not found.`);
       }
-    }, 500); // Simulate loading time
-
-    return () => clearTimeout(timer);
-  }, [id]); // Re-fetch if id changes
-
-
-  // Mock pool stats (should eventually use poolData)
-  const poolStats = {
-    tvl: '$5.2M',
-    volume24h: '$1.2M',
-    apy: '15.2%',
-    fee: '0.3%',
-    token1Reserve: '1.2M SUI', // Should use poolData.token1Symbol
-    token2Reserve: '2.4M USDC', // Should use poolData.token2Symbol
-    ratio: '1 SUI = 2 USDC', // Should be calculated
-    yourLiquidity: {
-      lpTokens: '1000',
-      share: '0.5%',
-      value: '$25,000',
-      token1Amount: '10,000 SUI', // Should use poolData.token1Symbol
-      token2Amount: '20,000 USDC' // Should use poolData.token2Symbol
+      setIsLoadingPool(false);
+    } else {
+      setErrorLoadingPool("Pool ID is missing from URL.");
+      setIsLoadingPool(false);
     }
-  };
+  }, [id, getPoolById]);
 
-  const handleRemovePercentageChange = (value: number) => {
-    setRemovePercentage(value);
-    // TODO: Calculate token amounts based on percentage
-  };
+  // TODO: Update mutation hooks if their logic needs context data
+  const addLiquidityMutation = useAddLiquidity();
+  // const removeLiquidityMutation = useRemoveLiquidity(); // Assuming this exists
+  // const bridgeLiquidityMutation = useBridgeLiquidity(); // Assuming this exists
 
-  // Handle form submission for adding liquidity
   const handleAddLiquiditySubmit = async () => {
     if (!poolData) {
       alert("Pool data is not available.");
       return;
     }
-
+    // Use context pool ID
     const dataToValidate: AddLiquidityInput = {
-      chainId: poolData.chain,
-      poolId: poolData.onChainId,
+      chainId: poolData.chain as 'sui' | 'solana', // Cast needed? Check hook input type
+      poolId: poolData.id,
       token1Amount: token1Amount,
       token2Amount: token2Amount,
       slippageTolerance: slippageTolerance,
     };
-
     const validationResult = addLiquiditySchema.safeParse(dataToValidate);
-
     if (!validationResult.success) {
-      // TODO: Show validation errors more gracefully
       console.error("Validation errors:", validationResult.error.flatten().fieldErrors);
       alert("Please check your input values.");
       return;
     }
-
-    console.log("Submitting data:", validationResult.data);
+    console.log("Submitting Add Liquidity data:", validationResult.data);
     addLiquidityMutation.mutate(validationResult.data);
   };
 
-  // --- Render Functions ---
+  const handleRemoveLiquiditySubmit = () => {
+    if (!poolData) return;
+    console.log("Submitting Remove Liquidity:", { poolId: poolData.id, percentage: removePercentage });
+    // removeLiquidityMutation.mutate({ poolId: poolData.id, percentage: removePercentage });
+    alert(`DEMO: Remove ${removePercentage}% liquidity from pool ${poolData.id}`);
+  };
+
+  const handleBridgeLiquiditySubmit = () => {
+    if (!poolData) return;
+    console.log("Submitting Bridge Liquidity:", { poolId: poolData.id /*, other params */ });
+    // bridgeLiquidityMutation.mutate({ poolId: poolData.id, /* other params */ });
+    alert(`DEMO: Bridge liquidity for pool ${poolData.id}`);
+  };
+
+
+  const handleRemovePercentageChange = (value: number) => {
+    setRemovePercentage(value);
+    // TODO: Calculate estimated token amounts based on percentage and poolData.yourLiquidity (if available)
+  };
+
+  // --- Loading and Error States ---
+  if (isLoadingPool) {
+    return (
+      <div className="container mx-auto px-4 py-12 flex justify-center items-center min-h-[calc(100vh-200px)]">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (errorLoadingPool || !poolData) {
+    return (
+      <div className="container mx-auto px-4 py-8 text-center">
+        <Alert type="error" title="Error Loading Pool" message={errorLoadingPool || `Pool with ID ${id} not found.`} />
+        <Link to="/pools" className="mt-4 inline-block">
+          <Button variant="outline">
+            <ArrowLeft size={16} className="mr-2" /> Back to Pools
+          </Button>
+        </Link>
+      </div>
+    );
+  }
+  // --- End Loading and Error States ---
+
+  // Helper function to format chain name
+  const formatChainName = (chain: string) => {
+    if (chain === 'sui') return 'Sui';
+    if (chain === 'solana') return 'Solana';
+    return chain.charAt(0).toUpperCase() + chain.slice(1); // Capitalize other chains
+  };
+
+  // Placeholder for user's liquidity data - fetch this separately if needed
+  const userLiquidity = {
+    lpTokens: '0', // Placeholder
+    share: '0.00%', // Placeholder
+    value: '$0.00', // Placeholder
+    token1Amount: '0', // Placeholder
+    token2Amount: '0' // Placeholder
+  };
 
   const renderSettings = () => (
-    <div className="p-4 bg-neutral-50 rounded-xl mb-4">
+    <div className="p-4 bg-neutral-50 rounded-xl mb-4 mt-4 border border-neutral-200 animate-fade-in">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-medium">Transaction Settings</h3>
-        <button onClick={() => setShowSettings(false)} className="text-neutral-500">
+        <h3 className="font-medium text-neutral-700">Transaction Settings</h3>
+        <button onClick={() => setShowSettings(false)} className="text-neutral-500 hover:text-neutral-800">
           <ChevronDown size={20} />
         </button>
       </div>
       <div className="space-y-4">
         <div>
           <label className="block text-sm text-neutral-600 mb-2">
-            Slippage Tolerance
+            Slippage Tolerance (%)
           </label>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             {['0.1', '0.5', '1.0'].map((value) => (
               <button
                 key={value}
                 onClick={() => setSlippageTolerance(value)}
-                className={`px-4 py-2 rounded-lg text-sm ${
+                className={`px-3 py-1 rounded-lg text-sm transition-colors ${
                   slippageTolerance === value
-                    ? 'bg-primary text-white'
-                    : 'bg-white text-neutral-600'
+                    ? 'bg-primary text-white shadow-sm'
+                    : 'bg-white text-neutral-600 hover:bg-neutral-100 border border-neutral-200'
                 }`}
               >
                 {value}%
@@ -240,113 +252,84 @@ const PoolDetailPage = () => {
               type="number"
               value={slippageTolerance}
               onChange={(e) => setSlippageTolerance(e.target.value)}
-              className="input w-24 text-sm"
+              className="input w-20 text-sm px-2 py-1"
               placeholder="Custom"
               step="0.1"
+              min="0"
             />
           </div>
         </div>
+        {/* Add other settings like deadline if needed */}
       </div>
     </div>
   );
 
   const renderTabContent = () => {
-    if (isLoadingPool) {
-      return <div className="text-center p-8">Loading pool details...</div>;
-    }
-    if (errorLoadingPool || !poolData) {
-      return <div className="text-center p-8 text-red-600">Error loading pool details.</div>;
-    }
-
     switch (activeTab) {
       case 'add':
         return (
           <div className="space-y-4">
             <button
               onClick={() => setShowSettings(!showSettings)}
-              className="flex items-center gap-2 text-neutral-600 hover:text-neutral-900 transition-colors"
+              className="flex items-center justify-between w-full text-neutral-600 hover:text-neutral-900 transition-colors text-sm font-medium p-2 rounded-md hover:bg-neutral-50"
             >
-              <Settings size={20} />
-              <span>Settings</span>
+              <span className="flex items-center gap-2">
+                <Settings size={16} />
+                Transaction Settings
+              </span>
+              <ChevronDown size={16} className={`transition-transform ${showSettings ? 'rotate-180' : ''}`} />
             </button>
 
             {showSettings && renderSettings()}
 
-            <div className="p-4 border border-neutral-200 rounded-xl">
-              <div className="flex justify-between mb-2">
-                <label className="text-sm font-medium text-neutral-500">
-                  {poolData.token1Symbol} Amount
-                </label>
-                <div className="text-sm text-neutral-500">
-                  {/* TODO: Fetch and display actual balance */}
-                  Balance: 1,234.56 {poolData.token1Symbol}
+            <TokenInput
+              label={`${poolData.token1} Amount`}
+              value={token1Amount}
+              onChange={setToken1Amount}
+              symbol={poolData.token1}
+              balance="-" // TODO: Fetch user balance
+              tokenIcon={tokenIcons[poolData.token1] ?? placeholderIcon}
+            />
+            <div className="flex justify-center my-1">
+              <Plus size={20} className="text-neutral-400" />
+            </div>
+            <TokenInput
+              label={`${poolData.token2} Amount`}
+              value={token2Amount}
+              onChange={setToken2Amount}
+              symbol={poolData.token2}
+              balance="-" // TODO: Fetch user balance
+              tokenIcon={tokenIcons[poolData.token2] ?? placeholderIcon}
+            />
+
+            {/* Estimated Output Section */}
+            <Card className="bg-neutral-50 border-neutral-200">
+              <CardContent className="p-4 space-y-2">
+                <div className="flex items-center justify-between text-sm text-neutral-600">
+                  <span>Estimated Output</span>
+                  <UITooltip content={<span>Output is estimated. Actual amount may vary due to price changes and fees.</span>}>
+                    <Info size={16} className="cursor-help" />
+                  </UITooltip>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  className="input flex-1"
-                  placeholder="0.00"
-                  value={token1Amount}
-                  onChange={(e) => setToken1Amount(e.target.value)}
-                />
-                <button className="btn-outline px-4">MAX</button>
-              </div>
-            </div>
-
-            <div className="flex justify-center">
-              <div className="p-2 bg-neutral-50 rounded-full">
-                <ArrowDown className="text-primary" size={24} />
-              </div>
-            </div>
-
-            <div className="p-4 border border-neutral-200 rounded-xl">
-              <div className="flex justify-between mb-2">
-                <label className="text-sm font-medium text-neutral-500">
-                  {poolData.token2Symbol} Amount
-                </label>
-                <div className="text-sm text-neutral-500">
-                  {/* TODO: Fetch and display actual balance */}
-                  Balance: 5,000 {poolData.token2Symbol}
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  className="input flex-1"
-                  placeholder="0.00"
-                  value={token2Amount}
-                  onChange={(e) => setToken2Amount(e.target.value)}
-                />
-                <button className="btn-outline px-4">MAX</button>
-              </div>
-            </div>
-
-            <div className="p-4 bg-neutral-50 rounded-xl">
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-neutral-600">Estimated Output</span>
-                <Info size={16} className="text-neutral-400" />
-              </div>
-              <div className="space-y-2">
                 <div className="flex justify-between">
-                  <span>LP Tokens</span>
+                  <span className="text-sm">LP Tokens</span>
                   <span className="font-medium">0.00</span> {/* TODO: Calculate */}
                 </div>
                 <div className="flex justify-between">
-                  <span>Share of Pool</span>
+                  <span className="text-sm">Share of Pool</span>
                   <span className="font-medium">0.00%</span> {/* TODO: Calculate */}
                 </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
             <Button
               variant="primary"
               className="w-full"
               onClick={handleAddLiquiditySubmit}
               isLoading={addLiquidityMutation.isLoading}
-              disabled={addLiquidityMutation.isLoading}
+              disabled={addLiquidityMutation.isLoading || !token1Amount || !token2Amount || parseFloat(token1Amount) <= 0 || parseFloat(token2Amount) <= 0}
             >
-              {addLiquidityMutation.isLoading ? 'Adding...' : 'Add Liquidity'}
+              {addLiquidityMutation.isLoading ? 'Adding Liquidity...' : 'Add Liquidity'}
             </Button>
           </div>
         );
@@ -354,78 +337,102 @@ const PoolDetailPage = () => {
       case 'remove':
         return (
           <div className="space-y-4">
-            <button
+             <button
               onClick={() => setShowSettings(!showSettings)}
-              className="flex items-center gap-2 text-neutral-600 hover:text-neutral-900 transition-colors"
+              className="flex items-center justify-between w-full text-neutral-600 hover:text-neutral-900 transition-colors text-sm font-medium p-2 rounded-md hover:bg-neutral-50"
             >
-              <Settings size={20} />
-              <span>Settings</span>
+              <span className="flex items-center gap-2">
+                <Settings size={16} />
+                Transaction Settings
+              </span>
+              <ChevronDown size={16} className={`transition-transform ${showSettings ? 'rotate-180' : ''}`} />
             </button>
 
             {showSettings && renderSettings()}
 
-            <div className="p-4 border border-neutral-200 rounded-xl">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-medium">Your Position</h3>
-                <div className="text-sm text-neutral-500">
-                  {poolStats.yourLiquidity.lpTokens} LP Tokens {/* TODO: Use actual data */}
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-neutral-600">Your Share</span>
-                  <span>{poolStats.yourLiquidity.share}</span> {/* TODO: Use actual data */}
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-neutral-600">Value</span>
-                  <span>{poolStats.yourLiquidity.value}</span> {/* TODO: Use actual data */}
-                </div>
-              </div>
-            </div>
+            {/* Your Position Card */}
+            <Card className="border-neutral-200">
+              <CardHeader className="p-4 border-b border-neutral-100">
+                 <h3 className="font-medium">Your Position</h3>
+              </CardHeader>
+              <CardContent className="p-4 space-y-2">
+                 <div className="flex justify-between text-sm">
+                   <span className="text-neutral-600">LP Tokens</span>
+                   <span>{userLiquidity.lpTokens}</span>
+                 </div>
+                 <div className="flex justify-between text-sm">
+                   <span className="text-neutral-600">Share of Pool</span>
+                   <span>{userLiquidity.share}</span>
+                 </div>
+                 <div className="flex justify-between text-sm">
+                   <span className="text-neutral-600">Value</span>
+                   <span>{userLiquidity.value}</span>
+                 </div>
+              </CardContent>
+            </Card>
 
-            <div className="p-4 border border-neutral-200 rounded-xl">
-              <label className="block text-sm font-medium text-neutral-500 mb-2">
-                Amount to Remove
-              </label>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={removePercentage}
-                onChange={(e) => handleRemovePercentageChange(Number(e.target.value))}
-                className="w-full h-2 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-primary"
-              />
-              <div className="flex justify-between mt-2">
-                {[0, 25, 50, 75, 100].map(val => (
-                   <button
-                     key={val}
-                     onClick={() => handleRemovePercentageChange(val)}
-                     className={`px-3 py-1 text-sm rounded-lg hover:bg-neutral-100 ${removePercentage === val ? 'text-primary font-medium' : ''}`}
-                   >
-                     {val}%
-                   </button>
-                ))}
-              </div>
-            </div>
+            {/* Amount to Remove Card */}
+            <Card className="border-neutral-200">
+               <CardHeader className="p-4 border-b border-neutral-100">
+                 <label className="block text-sm font-medium text-neutral-700">
+                   Amount to Remove
+                 </label>
+               </CardHeader>
+               <CardContent className="p-4">
+                 <input
+                   type="range"
+                   min="0"
+                   max="100"
+                   value={removePercentage}
+                   onChange={(e) => handleRemovePercentageChange(Number(e.target.value))}
+                   className="w-full h-2 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-primary mb-2"
+                 />
+                 <div className="flex justify-between text-xs text-neutral-500">
+                    <span>0%</span>
+                    <span>25%</span>
+                    <span>50%</span>
+                    <span>75%</span>
+                    <span>100%</span>
+                 </div>
+                 <div className="flex justify-center mt-2">
+                    <span className="text-lg font-medium text-primary">{removePercentage}%</span>
+                 </div>
+               </CardContent>
+            </Card>
 
-            <div className="p-4 bg-neutral-50 rounded-xl">
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-neutral-600">You will receive (estimated):</span>
-                <Info size={16} className="text-neutral-400" />
-              </div>
-              <div className="space-y-2">
+            {/* Estimated Receive Card */}
+            <Card className="bg-neutral-50 border-neutral-200">
+              <CardContent className="p-4 space-y-2">
+                <div className="flex items-center justify-between text-sm text-neutral-600 mb-2">
+                  <span>You will receive (estimated):</span>
+                  <UITooltip content={<span>Output is estimated. Actual amount may vary due to price changes and fees.</span>}>
+                    <Info size={16} className="cursor-help" />
+                  </UITooltip>
+                </div>
                 <div className="flex justify-between">
-                  <span>{poolData.token1Symbol}</span>
-                  <span className="font-medium">{poolStats.yourLiquidity.token1Amount}</span> {/* TODO: Calculate based on percentage */}
+                  <span className="text-sm flex items-center gap-1">
+                     <img src={tokenIcons[poolData.token1] ?? placeholderIcon} alt={poolData.token1} className="w-4 h-4" />
+                     {poolData.token1}
+                  </span>
+                  <span className="font-medium">{userLiquidity.token1Amount}</span> {/* TODO: Calculate based on percentage */}
                 </div>
                 <div className="flex justify-between">
-                  <span>{poolData.token2Symbol}</span>
-                  <span className="font-medium">{poolStats.yourLiquidity.token2Amount}</span> {/* TODO: Calculate based on percentage */}
+                   <span className="text-sm flex items-center gap-1">
+                     <img src={tokenIcons[poolData.token2] ?? placeholderIcon} alt={poolData.token2} className="w-4 h-4" />
+                     {poolData.token2}
+                  </span>
+                  <span className="font-medium">{userLiquidity.token2Amount}</span> {/* TODO: Calculate based on percentage */}
                 </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
-            <Button variant="primary" className="w-full"> {/* TODO: Add onClick handler */}
+            <Button
+              variant="primary"
+              className="w-full"
+              onClick={handleRemoveLiquiditySubmit}
+              // isLoading={removeLiquidityMutation.isLoading}
+              disabled={removePercentage <= 0 /* || removeLiquidityMutation.isLoading */}
+            >
               Remove Liquidity
             </Button>
           </div>
@@ -434,206 +441,258 @@ const PoolDetailPage = () => {
       case 'bridge':
         return (
           <div className="space-y-4">
-            {/* TODO: Implement Bridge UI and Logic */}
-            <p className="text-center text-neutral-500 p-4">Bridge functionality coming soon.</p>
-            {/*
-            <div className="p-4 border border-neutral-200 rounded-xl">
-              ... From/To Chain selection ...
-            </div>
-            <div className="p-4 border border-neutral-200 rounded-xl">
-              ... LP Token Amount input ...
-            </div>
-            <div className="p-4 bg-neutral-50 rounded-xl">
-              ... Bridge Details ...
-            </div>
-            <Button variant="primary" className="w-full">
-              Bridge Liquidity
-            </Button>
-            */}
+             <Alert type="info" message="Bridge functionality is coming soon." />
+             {/* Placeholder for Bridge form */}
+             <Card className="border-neutral-200">
+                <CardHeader className="p-4">
+                   <h3 className="font-medium">Bridge Liquidity (Coming Soon)</h3>
+                </CardHeader>
+                <CardContent className="p-4 space-y-4">
+                   <div>
+                      <label className="block text-sm font-medium text-neutral-700 mb-1">From Chain</label>
+                      <input className="input w-full bg-neutral-100" value={formatChainName(poolData.chain)} disabled />
+                   </div>
+                   <div>
+                      <label className="block text-sm font-medium text-neutral-700 mb-1">To Chain</label>
+                      <select className="input w-full" disabled>
+                         <option>{poolData.chain === 'sui' ? 'Solana' : 'Sui'}</option>
+                      </select>
+                   </div>
+                   <div>
+                      <label className="block text-sm font-medium text-neutral-700 mb-1">LP Token Amount</label>
+                      <div className="flex items-center gap-2">
+                         <input type="number" className="input flex-1" placeholder="0.00" disabled />
+                         <Button variant="outline" disabled>MAX</Button>
+                      </div>
+                   </div>
+                   <Card className="bg-neutral-50 border-neutral-200">
+                      <CardContent className="p-3 space-y-1">
+                         <div className="flex justify-between text-xs text-neutral-600">
+                            <span>Bridge Fee</span>
+                            <span>~0.1%</span>
+                         </div>
+                         <div className="flex justify-between text-xs text-neutral-600">
+                            <span>Estimated Time</span>
+                            <span>~2-5 minutes</span>
+                         </div>
+                      </CardContent>
+                   </Card>
+                   <Button variant="primary" className="w-full" disabled>
+                      Bridge Liquidity
+                   </Button>
+                </CardContent>
+             </Card>
           </div>
         );
-      default:
-         return null; // Should not happen
+       default:
+          return null;
     }
   };
 
-  // --- Main Component Return ---
-
-  // Display loading state for the whole page until pool data is fetched
-  if (isLoadingPool) {
-     return <div className="container mx-auto px-4 py-8 text-center">Loading pool details...</div>;
-  }
-
-  // Display error state if loading failed
-  if (errorLoadingPool || !poolData) {
-     return <div className="container mx-auto px-4 py-8 text-center text-red-600">Error loading pool details: {errorLoadingPool || `Pool ID ${id} not found.`}</div>;
-  }
-
-  // Render page content once data is loaded
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* Pool Header */}
-      <div className="bg-white rounded-xl shadow-card p-8 mb-8">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">{poolData.name} Pool</h1> {/* Dynamic Name */}
-            <p className="text-neutral-600">
-               {poolData.chain === 'sui' ? 'Sui' : poolData.chain === 'solana' ? 'Solana' : 'Unknown Chain'} Liquidity Pool {/* Dynamic Chain */}
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="px-4 py-2 bg-green-100 text-green-800 rounded-full text-sm font-medium">
-              Active {/* TODO: Make dynamic */}
-            </div>
-            <button className="btn-outline">
-              Share <ExternalLink size={16} className="ml-2" />
-            </button>
-          </div>
-        </div>
+      <Link to="/pools" className="flex items-center gap-2 text-neutral-600 hover:text-primary mb-6 transition-colors text-sm">
+        <ArrowLeft size={16} />
+        Back to Pools
+      </Link>
 
-        {/* Stats - Use poolStats (currently mock, should be updated with fetched data) */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-neutral-50 rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Droplets className="text-primary" size={20} />
-              <span className="text-neutral-600">TVL</span>
+      {/* Pool Header Card */}
+      <Card className="mb-8 shadow-sm">
+        <CardHeader className="p-6 border-b border-neutral-100">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+               <div className="flex -space-x-2">
+                  <img src={tokenIcons[poolData.token1] ?? placeholderIcon} alt={poolData.token1} className="w-8 h-8 rounded-full border-2 border-white" />
+                  <img src={tokenIcons[poolData.token2] ?? placeholderIcon} alt={poolData.token2} className="w-8 h-8 rounded-full border-2 border-white" />
+               </div>
+               <div>
+                  <h1 className="text-2xl font-bold">{poolData.name}</h1>
+                  <p className="text-sm text-neutral-500">{formatChainName(poolData.chain)} Pool</p>
+               </div>
             </div>
-            <p className="text-2xl font-bold">{poolStats.tvl}</p>
-          </div>
-          <div className="bg-neutral-50 rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <ArrowUpDown className="text-primary" size={20} />
-              <span className="text-neutral-600">24h Volume</span>
+            <div className="flex items-center gap-2">
+              {/* <div className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                Active
+              </div> */}
+              <Button variant="outline" size="sm">
+                Share <ExternalLink size={14} className="ml-1" />
+              </Button>
             </div>
-            <p className="text-2xl font-bold">{poolStats.volume24h}</p>
           </div>
-          <div className="bg-neutral-50 rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <TrendingUp className="text-primary" size={20} />
-              <span className="text-neutral-600">APY</span>
+        </CardHeader>
+        <CardContent className="p-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+          {/* Stats */}
+          <div className="space-y-1">
+            <div className="flex items-center gap-1 text-xs text-neutral-500">
+              <Droplets size={14} />
+              <span>TVL</span>
             </div>
-            <p className="text-2xl font-bold text-green-600">{poolStats.apy}</p>
+            <p className="text-lg font-semibold">{poolData.tvl}</p>
           </div>
-          <div className="bg-neutral-50 rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <ArrowLeftRight className="text-primary" size={20} />
-              <span className="text-neutral-600">Fee</span>
+          <div className="space-y-1">
+            <div className="flex items-center gap-1 text-xs text-neutral-500">
+              <ArrowUpDown size={14} />
+              <span>24h Volume</span>
             </div>
-            <p className="text-2xl font-bold">{poolStats.fee}</p>
+            <p className="text-lg font-semibold">{poolData.volume24h}</p>
           </div>
-        </div>
-      </div>
+          <div className="space-y-1">
+            <div className="flex items-center gap-1 text-xs text-neutral-500">
+              <TrendingUp size={14} />
+              <span>APR</span>
+            </div>
+            <p className="text-lg font-semibold text-green-600">{poolData.apr}</p>
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center gap-1 text-xs text-neutral-500">
+              <ArrowLeftRight size={14} />
+              <span>Fee</span>
+            </div>
+            <p className="text-lg font-semibold">{poolData.fee}</p>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left Column - Charts */}
+        {/* Left Column - Charts & Info */}
         <div className="lg:col-span-2 space-y-8">
-          {/* Performance Chart */}
-          <div className="bg-white rounded-xl shadow-card p-6">
-            <h2 className="text-xl font-bold mb-6">Performance</h2>
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={performanceData}>
-                  <defs>
-                    <linearGradient id="apy" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#f4022f" stopOpacity={0.1}/>
-                      <stop offset="95%" stopColor="#f4022f" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Area
-                    type="monotone"
-                    dataKey="apy"
-                    stroke="#f4022f"
-                    fillOpacity={1}
-                    fill="url(#apy)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+          {/* Performance Chart Card */}
+          <Card className="shadow-sm">
+            <CardHeader className="p-6">
+              <h2 className="text-lg font-semibold">Performance</h2>
+            </CardHeader>
+            <CardContent className="p-6 pt-0">
+              <div className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  {/* Use poolData.volumeHistory for the chart data */}
+                  <AreaChart data={poolData.volumeHistory}>
+                    <defs>
+                      <linearGradient id="volumeGradient" x1="0" y1="0" x2="0" y2="1"> {/* Changed gradient ID */}
+                        <stop offset="5%" stopColor="#f4022f" stopOpacity={0.1}/>
+                        <stop offset="95%" stopColor="#f4022f" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" vertical={false} />
+                    {/* Use 'time' for XAxis and 'value' for YAxis dataKey */}
+                    <RechartsXAxis dataKey="time" axisLine={false} tickLine={false} fontSize={12} /> {/* Use alias */}
+                    <RechartsYAxis axisLine={false} tickLine={false} fontSize={12} /> {/* Use alias */}
+                    {/* Use the aliased Tooltip directly imported from recharts */}
+                    <RechartsTooltip contentStyle={{ fontSize: '12px', padding: '4px 8px' }} /> {/* Use alias */}
+                    <Area
+                      type="monotone"
+                      dataKey="value" // Use 'value' from volumeHistory
+                      stroke="#f4022f"
+                      strokeWidth={2}
+                      fillOpacity={1}
+                      fill="url(#volumeGradient)" // Use updated gradient ID
+                      name="Volume" // Update name for tooltip
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
 
-          {/* Recent Transactions */}
-          <div className="bg-white rounded-xl shadow-card p-6">
-            <h2 className="text-xl font-bold mb-6">Recent Transactions</h2>
-            <div className="space-y-4">
-              {recentTransactions.map((tx, index) => (
-                <div key={index} className="flex items-center justify-between p-4 border border-neutral-100 rounded-lg">
-                  <div className="flex items-center gap-4">
-                    <ArrowUpDown className="text-primary" size={20} />
-                    <div>
-                      <p className="font-medium">{tx.type}</p>
-                      <p className="text-sm text-neutral-600">{tx.hash}</p>
+          {/* Pool Information Card */}
+           <Card className="shadow-sm">
+             <CardHeader className="p-6">
+               <h2 className="text-lg font-semibold">Pool Information</h2>
+             </CardHeader>
+             <CardContent className="p-6 pt-0 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+               <div className="space-y-1">
+                 <span className="text-neutral-500">{poolData.token1} Reserve</span>
+                 <p className="font-medium">{poolData.token1Balance}</p>
+               </div>
+               <div className="space-y-1">
+                 <span className="text-neutral-500">{poolData.token2} Reserve</span>
+                 <p className="font-medium">{poolData.token2Balance}</p>
+               </div>
+               <div className="space-y-1">
+                 <span className="text-neutral-500">Exchange Rate</span>
+                 <p className="font-medium">1 {poolData.token1} ≈ ? {poolData.token2}</p> {/* TODO: Calculate */}
+               </div>
+                <div className="space-y-1">
+                 <span className="text-neutral-500">Pool ID</span>
+                 <p className="font-medium break-all text-xs">{poolData.id}</p>
+               </div>
+             </CardContent>
+           </Card>
+
+
+          {/* Recent Transactions Card */}
+          <Card className="shadow-sm">
+            <CardHeader className="p-6">
+              <h2 className="text-lg font-semibold">Recent Transactions</h2>
+            </CardHeader>
+            <CardContent className="p-6 pt-0">
+              <div className="space-y-3">
+                {recentTransactions.map((tx, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 border border-neutral-100 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-neutral-100 rounded-full">
+                         <ArrowUpDown className="text-neutral-500" size={16} />
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">{tx.type}</p>
+                        <p className="text-xs text-neutral-500">{tx.hash}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium text-sm">{tx.amount}</p>
+                      <p className="text-xs text-neutral-500">{tx.time}</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-medium">{tx.amount}</p>
-                    <p className="text-sm text-neutral-600">{tx.time}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+                ))}
+                 {recentTransactions.length === 0 && (
+                    <p className="text-sm text-neutral-500 text-center py-4">No recent transactions for this pool.</p>
+                 )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Right Column - Actions */}
+        {/* Right Column - Actions Card */}
         <div className="lg:col-span-1">
-          <div className="bg-white rounded-xl shadow-card p-6">
-            <div className="flex gap-2 mb-6">
-              <button
-                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
-                  activeTab === 'add'
-                    ? 'bg-primary text-white'
-                    : 'text-neutral-600 hover:bg-neutral-50'
-                }`}
-                onClick={() => setActiveTab('add')}
-              >
-                <Plus size={20} className="mx-auto" />
-              </button>
-              <button
-                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
-                  activeTab === 'remove'
-                    ? 'bg-primary text-white'
-                    : 'text-neutral-600 hover:bg-neutral-50'
-                }`}
-                onClick={() => setActiveTab('remove')}
-              >
-                <Minus size={20} className="mx-auto" />
-              </button>
-              <button
-                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
-                  activeTab === 'bridge'
-                    ? 'bg-primary text-white'
-                    : 'text-neutral-600 hover:bg-neutral-50'
-                }`}
-                onClick={() => setActiveTab('bridge')}
-              >
-                <ArrowRightLeft size={20} className="mx-auto" />
-              </button>
-            </div>
-
-            {renderTabContent()}
-
-            <div className="mt-6 p-4 bg-neutral-50 rounded-xl">
-              <h3 className="font-medium mb-4">Pool Information</h3>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-neutral-600">{poolData.token1Symbol} Reserve</span> {/* Dynamic */}
-                  <span>{poolStats.token1Reserve}</span> {/* TODO: Use actual data */}
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-neutral-600">{poolData.token2Symbol} Reserve</span> {/* Dynamic */}
-                  <span>{poolStats.token2Reserve}</span> {/* TODO: Use actual data */}
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-neutral-600">Exchange Rate</span>
-                  <span>{poolStats.ratio}</span> {/* TODO: Calculate */}
-                </div>
-              </div>
-            </div>
-          </div>
+          <Card className="shadow-sm sticky top-20">
+            <CardHeader className="p-0">
+               {/* Tabs */}
+               <div className="flex border-b border-neutral-200">
+                 <button
+                   className={`flex-1 py-3 px-4 text-sm font-medium transition-colors flex justify-center items-center gap-2 ${
+                     activeTab === 'add'
+                       ? 'text-primary border-b-2 border-primary'
+                       : 'text-neutral-500 hover:text-neutral-800'
+                   }`}
+                   onClick={() => setActiveTab('add')}
+                 >
+                   <Plus size={16} /> Add
+                 </button>
+                 <button
+                   className={`flex-1 py-3 px-4 text-sm font-medium transition-colors flex justify-center items-center gap-2 ${
+                     activeTab === 'remove'
+                       ? 'text-primary border-b-2 border-primary'
+                       : 'text-neutral-500 hover:text-neutral-800'
+                   }`}
+                   onClick={() => setActiveTab('remove')}
+                 >
+                   <Minus size={16} /> Remove
+                 </button>
+                 <button
+                   className={`flex-1 py-3 px-4 text-sm font-medium transition-colors flex justify-center items-center gap-2 ${
+                     activeTab === 'bridge'
+                       ? 'text-primary border-b-2 border-primary'
+                       : 'text-neutral-500 hover:text-neutral-800'
+                   }`}
+                   onClick={() => setActiveTab('bridge')}
+                 >
+                   <ArrowRightLeft size={16} /> Bridge
+                 </button>
+               </div>
+            </CardHeader>
+            <CardContent className="p-6">
+              {renderTabContent()}
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

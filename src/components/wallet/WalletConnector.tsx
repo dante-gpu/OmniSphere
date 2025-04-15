@@ -7,6 +7,8 @@ import { useWallet as useSolanaWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import '@solana/wallet-adapter-react-ui/styles.css';
 
+// Import the new icon
+import suiIcon from '../../icons/sui.webp'; // Adjust path
 
 // Combined Dropdown/Status component for connected wallets
 const ConnectedWalletDisplay = () => {
@@ -57,14 +59,16 @@ const ConnectedWalletDisplay = () => {
             onClick={() => setSuiOpen(!suiOpen)}
             className="btn-outline flex items-center space-x-2 group"
           >
-             <img src="https://cryptologos.cc/logos/sui-sui-logo.png" alt="Sui" className="w-4 h-4" />
+             {/* Use imported icon */}
+             <img src={suiIcon} alt="Sui" className="w-4 h-4" />
             <span>{suiDisplayAddress}</span>
             <ChevronDown size={16} className={`transition-transform duration-200 ${suiOpen ? 'rotate-180' : ''}`} />
           </button>
           {suiOpen && (
             <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-lg border border-neutral-100 py-2 z-50">
               <div className="px-4 py-3 border-b border-neutral-100">
-                <div className="text-sm text-neutral-500">Sui Wallet ({suiWallet.wallet?.name})</div>
+                {/* Changed wallet?.name to adapter?.name */}
+                <div className="text-sm text-neutral-500">Sui Wallet ({suiWallet.adapter?.name})</div>
                 <div className="flex items-center justify-between mt-2">
                   <div className="font-mono text-sm">{suiWallet.account.address.slice(0, 10)}...{suiWallet.account.address.slice(-8)}</div>
                   <button onClick={copySuiAddress} className="p-2 hover:bg-neutral-50 rounded-lg transition-colors" title="Copy address">
@@ -84,6 +88,7 @@ const ConnectedWalletDisplay = () => {
       {/* Solana Wallet Display */}
       {solanaWallet.connected && solanaWallet.publicKey && (
          // Use WalletMultiButton for connected state display and disconnect
+         // WalletMultiButton uses its own icon logic, likely referencing adapter.icon which might still point to external URL if not overridden
          <WalletMultiButton style={{ height: '40px', lineHeight: '40px', borderRadius: '0.5rem' }} />
          // Basic display if WalletMultiButton styling is not preferred:
         /*
@@ -92,7 +97,8 @@ const ConnectedWalletDisplay = () => {
             onClick={() => setSolanaOpen(!solanaOpen)}
             className="btn-outline flex items-center space-x-2 group"
           >
-             <img src={solanaWallet.wallet?.adapter.icon} alt="Solana" className="w-4 h-4" />
+             // Use local icon path if using custom button
+             <img src="/icons/sol.png" alt="Solana" className="w-4 h-4" />
             <span>{solanaDisplayAddress}</span>
             <ChevronDown size={16} className={`transition-transform duration-200 ${solanaOpen ? 'rotate-180' : ''}`} />
           </button>
@@ -142,6 +148,7 @@ const WalletConnector = () => {
           )}
            {/* Show Solana Connect Button if not connected */}
           {!solanaWallet.connected && (
+            // WalletMultiButton might still try to load external icon from adapter
             <WalletMultiButton style={{ height: '40px', lineHeight: '40px', borderRadius: '0.5rem' }}>
                <Wallet size={16} className="mr-1" /> Connect Solana
             </WalletMultiButton>
