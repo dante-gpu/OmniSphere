@@ -3,7 +3,7 @@ import { useWallet as useSuiWallet } from '@suiet/wallet-kit'; // Use Sui wallet
 import { useWallet as useSolanaWallet } from '@solana/wallet-adapter-react'; // Use Solana wallet hook
 import toast from 'react-hot-toast';
 import type { AddLiquidityInput } from '../lib/validations/pool';
-import { Transaction, SystemProgram, PublicKey } from '@solana/web3.js'; // Import Solana Transaction for signing simulation
+import { Transaction, SystemProgram } from '@solana/web3.js'; // Import Solana Transaction for signing simulation
 
 // Removed constants not needed for demo: SUI_PACKAGE_ID, SUI_RPC_URL, SOLANA_RPC_URL
 
@@ -19,8 +19,8 @@ export function useAddLiquidity() {
         if (!suiWallet.connected || !suiWallet.account) {
           throw new Error('Please connect your Sui wallet first');
         }
-        console.log(`DEMO: Adding liquidity to Sui pool: ${poolId}`);
-        console.log(`DEMO: Token 1 Amount: ${token1Amount}, Token 2 Amount: ${token2Amount}`);
+        console.log(` Adding liquidity to Sui pool: ${poolId}`);
+        console.log(` Token 1 Amount: ${token1Amount}, Token 2 Amount: ${token2Amount}`);
 
         // --- Sui Transaction Logic (DEMO SIMULATION) ---
         // Simulate wallet interaction and network delay
@@ -54,7 +54,8 @@ export function useAddLiquidity() {
 
           // 2. Request signature from the wallet (DOES NOT SEND)
           console.log("DEMO: Requesting Solana wallet signature...");
-          const signedTx = await solanaWallet.signTransaction(dummyTx);
+          // Sign the transaction but don't store the result if it's not used
+          await solanaWallet.signTransaction(dummyTx);
           console.log("DEMO: Solana wallet signed successfully (simulated, tx not sent).");
 
           // 3. Simulate network delay after successful signing

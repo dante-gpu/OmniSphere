@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import * as React from 'react'; // Use namespace import
+import { useState, useEffect } from 'react'; // Keep named imports separate
 import { useParams, Link } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -13,23 +14,28 @@ import {
   Minus,
   Settings,
   Info,
-  ArrowDown,
   Loader2 // Added for loading state
 } from 'lucide-react';
 import {
   AreaChart,
   Area,
-  XAxis,
-  YAxis,
-  Tooltip,
+  XAxis as RechartsXAxisType, // Use temporary alias for casting
+  YAxis as RechartsYAxisType, // Use temporary alias for casting
+  Tooltip as RechartsTooltipType, // Use temporary alias for casting
   ResponsiveContainer,
   CartesianGrid
 } from 'recharts';
+
+// Explicitly cast to FunctionComponent via unknown
+const RechartsXAxis = RechartsXAxisType as unknown as React.FunctionComponent<any>;
+const RechartsYAxis = RechartsYAxisType as unknown as React.FunctionComponent<any>;
+const RechartsTooltip = RechartsTooltipType as unknown as React.FunctionComponent<any>;
+
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 
 // Context and Hooks
-import { usePools, Pool, Token as PoolToken } from '../context/PoolContext';
+import { usePools, Pool } from '../context/PoolContext';
 import { useAddLiquidity } from '../hooks/useAddLiquidity'; // Assuming this hook exists
 import { addLiquiditySchema, AddLiquidityInput } from '../lib/validations/pool'; // Assuming this exists
 
@@ -76,13 +82,14 @@ const tokenIcons: { [key: string]: string } = {
   ORCA: orcaIcon
 };
 
-// Mock data for charts/transactions (replace with real data fetching if available)
-const performanceData = Array.from({ length: 30 }, (_, i) => ({
-  date: dayjs().subtract(29 - i, 'day').format('MMM DD'),
-  apy: 15 + Math.random() * 10,
-  volume: 100000 + Math.random() * 50000
-}));
+// TODO: Replace with real data fetching if needed for other charts or features
+// const performanceData = Array.from({ length: 30 }, (_, i) => ({
+//   date: dayjs().subtract(29 - i, 'day').format('MMM DD'),
+//   apy: 15 + Math.random() * 10,
+//   volume: 100000 + Math.random() * 50000
+// }));
 
+// Mock data for recent transactions (replace with real data fetching)
 const recentTransactions = [
   { hash: '0x123...', type: 'Add Liquidity', amount: '$50,000', time: '2 minutes ago', status: 'completed' },
   { hash: '0x876...', type: 'Remove Liquidity', amount: '$25,000', time: '1 hour ago', status: 'completed' },
@@ -567,10 +574,10 @@ const PoolDetailPage = () => {
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" vertical={false} />
                     {/* Use 'time' for XAxis and 'value' for YAxis dataKey */}
-                    <XAxis dataKey="time" axisLine={false} tickLine={false} fontSize={12} />
-                    <YAxis axisLine={false} tickLine={false} fontSize={12} />
-                    {/* Use the Tooltip directly imported from recharts */}
-                    <Tooltip contentStyle={{ fontSize: '12px', padding: '4px 8px' }} />
+                    <RechartsXAxis dataKey="time" axisLine={false} tickLine={false} fontSize={12} /> {/* Use alias */}
+                    <RechartsYAxis axisLine={false} tickLine={false} fontSize={12} /> {/* Use alias */}
+                    {/* Use the aliased Tooltip directly imported from recharts */}
+                    <RechartsTooltip contentStyle={{ fontSize: '12px', padding: '4px 8px' }} /> {/* Use alias */}
                     <Area
                       type="monotone"
                       dataKey="value" // Use 'value' from volumeHistory

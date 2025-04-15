@@ -1,8 +1,8 @@
 import { useMutation } from 'react-query';
 import { useWallet as useSolanaWallet, useConnection } from '@solana/wallet-adapter-react';
 import toast from 'react-hot-toast';
-import { PublicKey, SystemProgram, Transaction, SYSVAR_RENT_PUBKEY } from '@solana/web3.js'; // Import SYSVAR_RENT_PUBKEY
-import { Program, AnchorProvider, BN, web3 } from '@project-serum/anchor';
+import { PublicKey, SystemProgram, SYSVAR_RENT_PUBKEY } from '@solana/web3.js'; // Import SYSVAR_RENT_PUBKEY
+import { Program, AnchorProvider, BN } from '@project-serum/anchor';
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from '@solana/spl-token'; // Import ASSOCIATED_TOKEN_PROGRAM_ID
 import { sha256 } from 'js-sha256';
 import { Buffer } from 'buffer';

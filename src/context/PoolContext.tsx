@@ -1,4 +1,5 @@
-import React, { createContext, useState, useContext, useEffect, ReactNode, useMemo } from 'react';
+import * as React from 'react';
+import { createContext, useState, useContext, useEffect, ReactNode, useMemo } from 'react';
 
 // Re-use the Pool interface structure from PoolsPage.tsx
 // Import necessary icons for default pools

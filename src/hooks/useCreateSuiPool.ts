@@ -2,13 +2,14 @@ import { useMutation } from 'react-query';
 import { useWallet as useSuiWallet } from '@suiet/wallet-kit';
 import toast from 'react-hot-toast';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
-import { SuiClient, getFullnodeUrl } from '@mysten/sui.js/client';
+import { SuiClient, getFullnodeUrl, SuiObjectChange, OwnedObjectRef } from '@mysten/sui.js/client'; // Import types
 import { parseUnits } from 'ethers';
 import { trackSuiToWormhole } from '../lib/wormholePoolBridge.ts';
+// Import constants - Assuming SUI_PACKAGE_ID is correctly exported now
 import { SUI_PACKAGE_ID, SOLANA_DEVNET_PROGRAM_ID } from '../lib/constants.ts';
 import { CHAIN_ID_SOLANA } from '@certusone/wormhole-sdk';
 import { PublicKey } from '@solana/web3.js';
-import { Buffer } from 'buffer'; // Import Buffer
+import { Buffer } from 'buffer'; // Import Buffer for conversions
 
 // --- Constants ---
 const SUI_LIQUIDITY_POOL_MODULE = 'liquidity_pool';
@@ -64,7 +65,8 @@ export function useCreateSuiPool() {
       console.log(`Initial Amounts: ${input.token1Amount} ${input.token1Symbol}, ${input.token2Amount} ${input.token2Symbol}`);
 
       try {
-        const txb = new TransactionBlock();
+        // --- Transaction 1: Create Pool ---
+        const txbCreate = new TransactionBlock();
 
         // 1. Parse amounts based on decimals
         const amount1BigInt = parseUnits(input.token1Amount, token1Info.decimals);
@@ -73,7 +75,7 @@ export function useCreateSuiPool() {
         // 2. Prepare Coin objects for transfer (More Robust Approach)
         const owner = suiWallet.account.address;
 
-        const prepareCoin = async (tokenSymbol: string, tokenInfo: { type: string; decimals: number }, amountBigInt: bigint) => {
+        const prepareCoin = async (txb: TransactionBlock, tokenSymbol: string, tokenInfo: { type: string; decimals: number }, amountBigInt: bigint) => {
             if (tokenInfo.type === '0x2::sui::SUI') {
                 // For SUI, split directly from gas
                 const [suiCoin] = txb.splitCoins(txb.gas, [txb.pure(amountBigInt.toString())]);
@@ -112,11 +114,11 @@ export function useCreateSuiPool() {
             }
         };
 
-        const coin1Object = await prepareCoin(input.token1Symbol, token1Info, amount1BigInt);
-        const coin2Object = await prepareCoin(input.token2Symbol, token2Info, amount2BigInt);
+        const coin1Object = await prepareCoin(txbCreate, input.token1Symbol, token1Info, amount1BigInt);
+        const coin2Object = await prepareCoin(txbCreate, input.token2Symbol, token2Info, amount2BigInt);
 
         // 3. Call the create_pool function
-        txb.moveCall({
+        txbCreate.moveCall({
           target: `${SUI_PACKAGE_ID}::${SUI_LIQUIDITY_POOL_MODULE}::create_pool`,
           typeArguments: [token1Info.type, token2Info.type],
           arguments: [
@@ -126,16 +128,17 @@ export function useCreateSuiPool() {
         });
 
         console.log("Requesting Sui wallet signature for create_pool...");
-        const result = await suiWallet.signAndExecuteTransactionBlock({
-          transactionBlock: txb as any,
+        const createResult = await suiWallet.signAndExecuteTransactionBlock({
+          transactionBlock: txbCreate as any,
+          options: { showObjectChanges: true, showEffects: true } // Request objectChanges and effects
         });
-        console.log("Sui create_pool transaction successful:", result);
+        console.log("Sui create_pool transaction successful:", createResult);
 
         // --- Find the created Pool Object ID ---
         let poolObjectId: string | undefined;
-        if (result.objectChanges) {
-             const createdPoolChange = result.objectChanges.find(
-                 (change) => change.type === 'created' &&
+        if (createResult.objectChanges) {
+             const createdPoolChange = createResult.objectChanges.find(
+                 (change: SuiObjectChange) => change.type === 'created' && // Add type SuiObjectChange
                               change.objectType.startsWith(`${SUI_PACKAGE_ID}::${SUI_LIQUIDITY_POOL_MODULE}::Pool<`)
              );
              // Access objectId safely after checking the type
@@ -144,39 +147,39 @@ export function useCreateSuiPool() {
              }
         }
          // Fallback to effects if needed
-        if (!poolObjectId && result.effects?.created?.length) {
-             const createdPoolEffect = result.effects.created.find(
-                 (eff) => typeof eff.owner === 'object' && 'Shared' in eff.owner
+        if (!poolObjectId && createResult.effects?.created?.length) {
+             const createdPoolEffect = createResult.effects.created.find(
+                 (eff: OwnedObjectRef) => typeof eff.owner === 'object' && 'Shared' in eff.owner // Add type OwnedObjectRef
              );
              poolObjectId = createdPoolEffect?.reference?.objectId;
          }
 
         if (!poolObjectId) {
-            console.error("Could not find created Pool Object ID in transaction effects/changes:", result);
+            console.error("Could not find created Pool Object ID in transaction effects/changes:", createResult);
             throw new Error("Failed to find created Pool Object ID after transaction.");
         }
         console.log("Found created Pool Object ID:", poolObjectId);
 
-        // --- 4. Call publish_create_pool_message ---
+        // --- Transaction 2: Publish Wormhole Message ---
         console.log("Publishing Wormhole message for pool creation...");
-        const txb2 = new TransactionBlock();
+        const txbPublish = new TransactionBlock();
         // Convert Solana Program ID to bytes using Buffer
         const targetProgramAddressBytes = Buffer.from(
             new PublicKey(SOLANA_DEVNET_PROGRAM_ID).toBytes()
         );
 
-        txb2.moveCall({
+        txbPublish.moveCall({
             target: `${SUI_PACKAGE_ID}::${SUI_BRIDGE_INTERFACE_MODULE}::publish_create_pool_message`,
             typeArguments: [token1Info.type, token2Info.type],
             arguments: [
-                txb2.object(poolObjectId), // Pass the Pool object ID
-                txb2.pure(CHAIN_ID_SOLANA, 'u16'),
-                txb2.pure(Array.from(targetProgramAddressBytes), 'vector<u8>'), // Pass target address as bytes
+                txbPublish.object(poolObjectId), // Pass the Pool object ID
+                txbPublish.pure(CHAIN_ID_SOLANA, 'u16'),
+                txbPublish.pure(Array.from(targetProgramAddressBytes), 'vector<u8>'), // Pass target address as bytes
             ],
         });
 
         const publishResult = await suiWallet.signAndExecuteTransactionBlock({
-            transactionBlock: txb2 as any,
+            transactionBlock: txbPublish as any,
         });
         console.log("Sui publish_create_pool_message transaction successful:", publishResult);
 
@@ -188,7 +191,7 @@ export function useCreateSuiPool() {
         if (error?.message?.includes('User rejected the request')) {
           throw new Error('Sui transaction rejected by user.');
         }
-        throw new Error(`Sui pool creation failed: ${error?.message || 'Unknown error'}`);
+        throw new Error(`Sui pool creation/publish failed: ${error?.message || 'Unknown error'}`);
       }
     },
     {

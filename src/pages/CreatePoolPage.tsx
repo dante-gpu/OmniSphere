@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Info, Settings, ChevronDown, Plus, RefreshCw } from 'lucide-react';
+import * as React from 'react'; // Changed import style
+import { useState, useMemo } from 'react'; // Kept named imports
+import { Link } from 'react-router-dom'; // Removed useNavigate
+import { ArrowLeft, Settings, ChevronDown, Plus } from 'lucide-react'; // Removed Info, RefreshCw
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader } from '../components/ui/Card'; // Import Card parts
 import { TokenSelect } from '../components/forms/TokenSelect';
@@ -11,7 +12,7 @@ import { useCreateSuiPool } from '../hooks/useCreateSuiPool';
 import { useCreateSolanaPool } from '../hooks/useCreateSolanaPool';
 import { Alert } from '../components/ui/Alert'; // Import Alert
 import toast from 'react-hot-toast'; // Import toast
-import { usePools, Pool, Token as PoolToken } from '../context/PoolContext'; // Import usePools and types
+import { usePools, Token as PoolToken } from '../context/PoolContext'; // Removed Pool import
 
 // Import all icons
 import suiIcon from '../icons/sui.webp';
@@ -57,7 +58,7 @@ const MOCK_TOKENS: { [key: string]: Token } = {
 };
 
 const CreatePoolPage = () => {
-  const navigate = useNavigate();
+  // Removed: const navigate = useNavigate();
   const [selectedChain, setSelectedChain] = useState<ChainOption>('sui');
   const [token1, setToken1] = useState<Token | null>(null);
   const [token2, setToken2] = useState<Token | null>(null);
@@ -262,7 +263,7 @@ const CreatePoolPage = () => {
                     { label: 'Solana', value: 'solana' },
                   ]}
                   value={selectedChain}
-                  onChange={(value) => {
+                  onChange={(value: string) => { // Added type string to value
                     setSelectedChain(value as ChainOption);
                     setToken1(null); // Reset tokens on chain change
                     setToken2(null);
