@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import { utils } from 'ethers'; // For amount conversion
 
 // TODO: Replace with actual deployed Package ID
-const OMNI_PACKAGE_ID = '0xOMNI_PACKAGE_ID_PLACEHOLDER';
+const OMNI_PACKAGE_ID = '0xee971f83a4e21e2e1c129d4ea7478451a161fe7efd96e76c576a4df04bda6f4e';
 const LIQUIDITY_POOL_MODULE = 'liquidity_pool';
 
 interface SwapParams {
@@ -98,11 +98,12 @@ export function useSwap() {
 
       // 6. Sign and execute the transaction using the deprecated function
       toast.loading('Please approve the transaction in your wallet...', { id: toastId });
-      // WORKAROUND: Use 'as any' to bypass the Transaction type mismatch due to dependency conflict.
-      // The proper fix is to resolve the duplicate @mysten/sui.js versions in package.json/lock file.
+      // NOTE: The following line will likely show a TypeScript error due to @mysten/sui.js dependency conflict.
+      // This needs to be resolved in package.json (overrides/resolutions) or by removing direct dependency.
       const result = await signAndExecuteTransactionBlock({
-        transactionBlock: txb as any, // Pass the Transaction instance with type assertion
-        // options: { showEffects: true } // Optional: to get more details
+        transactionBlock: {
+          blockData: txb.blockData,
+        } as any,
       });
 
       toast.success(`Swap successful! Digest: ${result.digest}`, { id: toastId, duration: 5000 });

@@ -74,22 +74,53 @@ export const useCreateSuiPool = () => {
             const largestCoinA = findLargestCoin(coinsA.data);
             const largestCoinB = findLargestCoin(coinsB.data);
 
-            if (!largestCoinA || BigInt(largestCoinA.balance) < initialLiquidityA) {
-                 // Attempt merge if largest isn't enough (simplified example)
-                 // In a real app: txb.mergeCoins(...) logic here
-                 throw new Error(`Could not find a single coin object large enough for Token A. Merging required (not implemented in this example).`);
-            }
-             if (!largestCoinB || BigInt(largestCoinB.balance) < initialLiquidityB) {
-                 // Attempt merge if largest isn't enough (simplified example)
-                 throw new Error(`Could not find a single coin object large enough for Token B. Merging required (not implemented in this example).`);
-            }
+            // --- Enhanced Coin Selection & Merging ---
+            const prepareCoinInput = (
+                coins: typeof coinsA.data,
+                requiredAmount: bigint,
+                tokenSymbol: string // For error messages
+            ): ReturnType<typeof txb.splitCoins>[0] => {
+                // Sort coins descending by balance
+                const sortedCoins = coins.sort((a, b) => BigInt(b.balance) < BigInt(a.balance) ? -1 : 1);
 
-            const coinARef = txb.object(largestCoinA.coinObjectId);
-            const coinBRef = txb.object(largestCoinB.coinObjectId);
+                // Find the primary coin (largest balance)
+                const primaryCoin = sortedCoins[0];
+                if (!primaryCoin) {
+                    throw new Error(`No coin objects found for ${tokenSymbol}.`); // Should be caught by balance check earlier, but good practice
+                }
 
-            // Pass bigint directly to splitCoins, removing txb.pure() wrapper
-            const [splitCoinA] = txb.splitCoins(coinARef, [initialLiquidityA]);
-            const [splitCoinB] = txb.splitCoins(coinBRef, [initialLiquidityB]);
+                const primaryCoinRef = txb.object(primaryCoin.coinObjectId);
+                let currentBalance = BigInt(primaryCoin.balance);
+
+                // If primary coin is not enough, merge others into it
+                if (currentBalance < requiredAmount) {
+                    const coinsToMerge: ReturnType<typeof txb.object>[] = [];
+                    for (let i = 1; i < sortedCoins.length; i++) {
+                        coinsToMerge.push(txb.object(sortedCoins[i].coinObjectId));
+                        currentBalance += BigInt(sortedCoins[i].balance);
+                        if (currentBalance >= requiredAmount) {
+                            break; // Stop merging once we have enough
+                        }
+                    }
+                    // Check again after potential merge candidates are identified
+                    if (currentBalance < requiredAmount) {
+                         // This should ideally not happen if totalBalance check passed, but handles edge cases
+                         throw new Error(`Logic error: Total balance sufficient but couldn't gather enough coins for ${tokenSymbol}.`);
+                    }
+                    if (coinsToMerge.length > 0) {
+                        console.log(`Merging ${coinsToMerge.length} additional coin(s) for ${tokenSymbol}`);
+                        txb.mergeCoins(primaryCoinRef, coinsToMerge);
+                    }
+                }
+
+                // Split the required amount from the primary coin (which might have been merged into)
+                const [splitCoin] = txb.splitCoins(primaryCoinRef, [requiredAmount]);
+                return splitCoin;
+            };
+
+            const splitCoinA = prepareCoinInput(coinsA.data, initialLiquidityA, 'Token A');
+            const splitCoinB = prepareCoinInput(coinsB.data, initialLiquidityB, 'Token B');
+            // --- End Enhanced Coin Selection ---
 
 
             // Call the create_pool function from the Move module

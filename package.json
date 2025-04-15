@@ -65,10 +65,8 @@
     "@injectivelabs/sdk-ts@1.10.72": {
       "@injectivelabs/token-metadata": "1.10.42"
     }
+  },
+  "resolutions": {
+    "@mysten/sui": "^0.XX.YY"
   }
 }
-"overrides": {
-    "@injectivelabs/sdk-ts@1.10.72": {
-      "@injectivelabs/token-metadata": "1.10.42"
-    }
-  }

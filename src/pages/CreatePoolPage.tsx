@@ -14,7 +14,8 @@ import { useCreateSolanaPool } from '../hooks/useCreateSolanaPool';
 import { Alert } from '../components/ui/Alert'; // Import Alert
 import toast from 'react-hot-toast'; // Re-add toast import for Solana
 import { usePools, Token as PoolToken } from '../context/PoolContext'; // Removed Pool import
-import { parseUnits, formatUnits } from 'ethers/lib/utils'; // Correct import path for ethers v5 utils
+import { parseUnits } from 'ethers/lib/utils'; // Correct import path for ethers v5 utils, removed unused formatUnits
+import { SUI_TOKEN_MAP } from '../lib/constants'; // Import the centralized token map
 
 // Import all icons
 import suiIcon from '../icons/sui.webp';
@@ -83,18 +84,8 @@ const CreatePoolPage = () => {
   const isLoading = selectedChain === 'sui' ? isSuiCreating : isSolanaLoading;
 
 
-  // --- Placeholder Sui Token Info ---
-  // IMPORTANT: Replace '0x...' with the ACTUAL package IDs for your target network (devnet/testnet/mainnet)
-  const SUI_TOKEN_INFO: { [symbol: string]: { address: string; decimals: number } } = {
-    'SUI': { address: '0x2::sui::SUI', decimals: 9 }, // Native SUI
-    'USDC': { address: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa::usdc::USDC', decimals: 6 }, // Replace 0xaaaa... with actual USDC package ID
-    'USDT': { address: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb::usdt::USDT', decimals: 6 }, // Replace 0xbbbb... with actual USDT package ID
-    // Add other Sui tokens used in MOCK_TOKENS here with their correct addresses and decimals
-  };
-  // --- End Placeholder ---
-
-
   // Define available tokens based on selected chain
+  // For Sui, filter based on keys in SUI_TOKEN_MAP to ensure we have info
   const availableTokens: Token[] = useMemo(() => {
     const symbols = selectedChain === 'sui'
       ? ['SUI', 'USDC', 'USDT', 'WETH', 'BTC', 'APT', 'WMATIC', 'AVAX', 'BONK'] // Example Sui tokens
@@ -146,8 +137,9 @@ const CreatePoolPage = () => {
             return;
         }
 
-        const token1Info = SUI_TOKEN_INFO[token1.symbol];
-        const token2Info = SUI_TOKEN_INFO[token2.symbol];
+        // Use the imported SUI_TOKEN_MAP
+        const token1Info = SUI_TOKEN_MAP[token1.symbol];
+        const token2Info = SUI_TOKEN_MAP[token2.symbol];
 
         if (!token1Info || !token2Info) {
             setFormError(`Token details not found for ${!token1Info ? token1.symbol : ''} ${!token2Info ? token2.symbol : ''} on Sui. Check constants.`);
@@ -165,14 +157,15 @@ const CreatePoolPage = () => {
             const amount2BigInt = amount2BN.toBigInt(); // Convert to bigint
 
             console.log(`Creating Sui Pool: ${token1.symbol}/${token2.symbol}`);
-            console.log(`  Token A: ${token1Info.address}, Amount: ${amount1BigInt.toString()}`);
-            console.log(`  Token B: ${token2Info.address}, Amount: ${amount2BigInt.toString()}`);
+            // Use the 'type' field from SUI_TOKEN_MAP for the address
+            console.log(`  Token A: ${token1Info.type}, Amount: ${amount1BigInt.toString()}`);
+            console.log(`  Token B: ${token2Info.type}, Amount: ${amount2BigInt.toString()}`);
 
-            // Call the specific create function from the hook
+            // Call the specific create function from the hook, passing the 'type' as address
             await createSuiPool({
                 wallet: wallet, // Pass the wallet context
-                tokenAAddress: token1Info.address,
-                tokenBAddress: token2Info.address,
+                tokenAAddress: token1Info.type, // Use the full CoinType string
+                tokenBAddress: token2Info.type, // Use the full CoinType string
                 initialLiquidityA: amount1BigInt,
                 initialLiquidityB: amount2BigInt,
             });
