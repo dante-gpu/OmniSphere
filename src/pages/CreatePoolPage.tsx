@@ -117,22 +117,34 @@ const CreatePoolPage = () => {
         return;
     }
 
-    const dataToSubmit = {
-      chainId: selectedChain,
-      token1Symbol: token1.symbol,
-      token2Symbol: token2.symbol,
-      token1Amount: token1Amount,
-      token2Amount: token2Amount,
-      slippageTolerance: slippageTolerance,
-    };
+    // Define fee (e.g., 0.3% = 30 basis points) - Can be made configurable later
+    const feeBasisPoints = 30;
 
-    console.log('DEMO: Submitting Create Pool Data:', dataToSubmit);
+    let dataToSubmit: any; // Use 'any' for now, or define a union type
+    let mutationToCall: any; // Use 'any' for now
 
-    // Call the correct mutation based on the selected chain
-    const mutationToCall = selectedChain === 'sui' ? createSuiPoolMutation : createSolanaPoolMutation;
+    if (selectedChain === 'sui') {
+        dataToSubmit = {
+            token1Symbol: token1.symbol,
+            token2Symbol: token2.symbol,
+            token1Amount: token1Amount,
+            token2Amount: token2Amount,
+        };
+        mutationToCall = createSuiPoolMutation;
+        console.log('Submitting Sui Create Pool Data:', dataToSubmit);
+    } else { // selectedChain === 'solana'
+        dataToSubmit = {
+            token1Symbol: token1.symbol,
+            token2Symbol: token2.symbol,
+            feeBasisPoints: feeBasisPoints, // Pass fee for Solana
+        };
+        mutationToCall = createSolanaPoolMutation;
+        console.log('Submitting Solana Create Pool Data:', dataToSubmit);
+    }
+
 
     toast.promise(
-       mutationToCall.mutateAsync(dataToSubmit), // Use the determined mutation
+       mutationToCall.mutateAsync(dataToSubmit), // Pass the correctly structured data
        {
          loading: `Initiating ${selectedChain} pool creation...`,
          success: (result: any) => { // Added type any to result temporarily

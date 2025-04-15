@@ -2,11 +2,13 @@ import { useMutation } from 'react-query';
 import { useWallet as useSuiWallet } from '@suiet/wallet-kit';
 import toast from 'react-hot-toast';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
-import { SuiClient, getFullnodeUrl } from '@mysten/sui.js/client'; // Import SuiClient and getFullnodeUrl
+import { SuiClient, getFullnodeUrl } from '@mysten/sui.js/client';
+// Remove duplicate TransactionBlock import
 import { parseUnits } from 'ethers'; // Using ethers for parsing units
+import { trackSuiToWormhole } from '../lib/wormholePoolBridge.ts'; // Import the tracking function
 
 // --- Constants ---
-const SUI_PACKAGE_ID = '0xee971f83a4e21e2e1c129d4ea7478451a161fe7efd96e76c576a4df04bda6f4e'; 
+const SUI_PACKAGE_ID = '0xee971f83a4e21e2e1c129d4ea7478451a161fe7efd96e76c576a4df04bda6f4e';
 const SUI_LIQUIDITY_POOL_MODULE = 'liquidity_pool'; 
 
 // Define the token mapping (replace with import from a constants file if preferred)
@@ -123,10 +125,28 @@ export function useCreateSuiPool() {
       }
     },
     {
-      onSuccess: (result) => {
+      onSuccess: async (result) => { // Make onSuccess async
         toast.success(`Sui pool creation submitted! Digest: ${result.txDigest.substring(0, 10)}...`);
         console.log("Sui Pool Creation Submitted:", result);
-        // TODO: Initiate Wormhole bridge tracking here using result.txDigest
+
+        // Initiate Wormhole bridge tracking
+        toast.loading('Tracking Wormhole message...', { id: 'wormhole-track' });
+        const bridgeResult = await trackSuiToWormhole(suiClient, result.txDigest);
+
+        if (bridgeResult.error) {
+          toast.error(`Wormhole tracking failed: ${bridgeResult.error}`, { id: 'wormhole-track' });
+          console.error("Wormhole Tracking Error:", bridgeResult.error);
+        } else if (bridgeResult.wormholeMessageInfo) {
+          const { sequence, emitterAddress } = bridgeResult.wormholeMessageInfo;
+          // Simplify toast message to avoid JSX issues for now
+          const explorerLink = `https://wormholescan.io/#/tx/${result.txDigest}?network=TESTNET&chain=sui`; // Keep link generation
+          const successMsg = `Wormhole message found! Seq: ${sequence}. Emitter: ${emitterAddress.substring(0, 6)}... View on Wormholescan: ${explorerLink}`;
+          toast.success(successMsg, { id: 'wormhole-track', duration: 8000 }); // Increased duration
+          console.log("Wormhole Tracking Success:", bridgeResult);
+          // TODO: Potentially store VAA bytes or pass them to another function
+        } else {
+           toast.error('Wormhole tracking completed but no message info found.', { id: 'wormhole-track' });
+        }
       },
       onError: (error: Error) => {
         toast.error(error.message || 'Failed to create Sui pool');
