@@ -10,8 +10,9 @@ import { trackSolanaToWormhole } from '../lib/wormholePoolBridge.ts';
 import { SOLANA_DEVNET_PROGRAM_ID } from '../lib/constants.ts';
 import { utils } from 'ethers'; // For parsing amounts
 
-// Assuming your IDL is imported/available, replace with actual import
-import idl from '../../programs/liquidity_pool/target/idl/liquidity_pool_program.json'; // Adjust path as needed
+// Import the IDL JSON correctly using Vite's JSON import capability
+import idlJson from '../../programs/liquidity_pool/target/idl/liquidity_pool_program.json?raw'; // Adjust path as needed, use ?raw
+const idl = JSON.parse(idlJson); // Parse the raw JSON string
 
 // --- Constants ---
 const SOLANA_PROGRAM_ID = new PublicKey(SOLANA_DEVNET_PROGRAM_ID); // Use constant
@@ -213,14 +214,15 @@ export function useCreateSolanaPool() {
           console.error("Wormhole Tracking Error:", bridgeResult.error);
         } else if (bridgeResult.wormholeMessageInfo) {
           const { sequence, emitterAddress } = bridgeResult.wormholeMessageInfo;
-          const emitterStr = emitterAddress.toString(); // Convert UniversalAddress to string
-          // Optional: Provide link to Wormholescan
+          const emitterStr = emitterAddress.toString(); // Convert emitter address to string for display.
+          // Provide a link to the transaction on Wormholescan for easy verification.
           const explorerLink = `https://wormholescan.io/#/tx/${result.txSignature}?network=TESTNET&chain=solana`;
-          const successMsg = `Wormhole message found! Seq: ${sequence}. Emitter: ${emitterStr.substring(0, 6)}... View on Wormholescan: ${explorerLink}`; // Use emitterStr
+          const successMsg = `Wormhole message found! Seq: ${sequence}. Emitter: ${emitterStr.substring(0, 6)}... View on Wormholescan: ${explorerLink}`;
           toast.success(successMsg, { id: 'wormhole-track-sol', duration: 8000 });
           console.log("Wormhole Tracking Success:", bridgeResult);
-          // TODO: Potentially store VAA bytes or pass them to another function
+          // TODO: Decide what to do with the VAA bytes (e.g., store them, pass to another process).
         } else {
+           // This case might occur if tracking finishes but no message is found (e.g., network issues, delay).
            toast.error('Wormhole tracking completed but no message info found.', { id: 'wormhole-track-sol' });
         }
       },

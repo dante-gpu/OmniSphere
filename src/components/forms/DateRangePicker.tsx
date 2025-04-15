@@ -56,6 +56,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
         `} />
       </button>
 
+      {/* Date picker dropdown - only visible when open and not disabled */}
       {isOpen && !disabled && (
         <div className="absolute z-50 w-full mt-2 bg-white rounded-xl border shadow-lg p-4">
           <div className="space-y-2">
@@ -70,6 +71,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
             ))}
           </div>
           
+          {/* Manual date selection inputs */}
           <div className="mt-4 pt-4 border-t grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm text-neutral-500 mb-1">Start Date</label>

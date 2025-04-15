@@ -17,11 +17,10 @@ export const WORMHOLE_RPC_HOSTS = {
 // Add other constants like program IDs, token mappings etc. here
 // Or import them from other dedicated files
 
-export const SUI_PACKAGE_ID = '0xee971f83a4e21e2e1c129d4ea7478451a161fe7efd96e76c576a4df04bda6f4e'; // Your deployed liquidity pool package ID
+export const SUI_PACKAGE_ID = '0xee971f83a4e21e2e1c129d4ea7478451a161fe7efd96e76c576a4df04bda6f4e'; // our deployed liquidity pool package ID
 export const SOLANA_DEVNET_PROGRAM_ID = 'AGHWA8Ff6ZPzFZxjHsH7CRFiwXSucXLhbZ3SUQYYLNoZ';
 
 // --- Sui Token Information ---
-// IMPORTANT: Replace placeholder package IDs (0xaaaa..., 0xbbbb...) with the ACTUAL deployed package IDs
 // for these tokens on your target network (devnet/testnet/mainnet).
 // The 'type' field should match the full CoinType string.
 export interface SuiTokenInfo {

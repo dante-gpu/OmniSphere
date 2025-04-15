@@ -31,11 +31,12 @@ export const useCreateSuiPool = () => {
         }
 
         // Determine the network from the connected wallet's chain info
-        // Assuming wallet.chain.name format like 'sui:devnet', 'sui:testnet', 'sui:mainnet'
-        const networkName = wallet.chain?.name?.split(':')[1] as 'devnet' | 'testnet' | 'mainnet' | undefined;
+        // Use wallet.chain.id which should be like 'sui:devnet', 'sui:testnet', 'sui:mainnet'
+        const chainId = wallet.chain?.id;
+        const networkName = chainId?.split(':')[1] as 'devnet' | 'testnet' | 'mainnet' | undefined;
 
         if (!networkName || !['devnet', 'testnet', 'mainnet'].includes(networkName)) {
-             toast.error(`Unsupported or unknown Sui network: ${wallet.chain?.name}`);
+             toast.error(`Unsupported or unknown Sui network ID: ${chainId}`);
              console.error("Unsupported Sui network:", wallet.chain);
              return;
         }
@@ -63,144 +64,151 @@ export const useCreateSuiPool = () => {
                 throw new Error(`Insufficient balance for Token B. Required: ${initialLiquidityB}, Available: ${totalBalanceB}`);
             }
 
-            // 4. Prepare coin inputs for the transaction
-            // This uses txb.splitCoins which requires a single coin object large enough.
-            // If the required amount is split across multiple coin objects, they need to be merged first.
-            // For simplicity, we'll find the largest coin and try to split from it.
-            // A more robust solution would merge coins if necessary.
-
-            const findLargestCoin = (coins: typeof coinsA.data) => coins.sort((a, b) => BigInt(b.balance) < BigInt(a.balance) ? -1 : 1)[0];
-
-            const largestCoinA = findLargestCoin(coinsA.data);
-            const largestCoinB = findLargestCoin(coinsB.data);
-
-            // --- Enhanced Coin Selection & Merging ---
+            // Helper function to prepare a coin input for the transaction.
+            // It finds the largest coin object, merges smaller ones into it if necessary
+            // to reach the required amount, and then splits the exact amount needed.
             const prepareCoinInput = (
-                coins: typeof coinsA.data,
-                requiredAmount: bigint,
-                tokenSymbol: string // For error messages
-            ): ReturnType<typeof txb.splitCoins>[0] => {
-                // Sort coins descending by balance
+                coins: typeof coinsA.data, // Array of coin objects for a specific type
+                requiredAmount: bigint,    // The amount needed for the transaction
+                tokenSymbol: string        // For logging/error messages
+            ): ReturnType<typeof txb.splitCoins>[0] => { // Returns the result of txb.splitCoins
+                // Sort coins by balance in descending order to use the largest ones first.
                 const sortedCoins = coins.sort((a, b) => BigInt(b.balance) < BigInt(a.balance) ? -1 : 1);
 
-                // Find the primary coin (largest balance)
                 const primaryCoin = sortedCoins[0];
                 if (!primaryCoin) {
-                    throw new Error(`No coin objects found for ${tokenSymbol}.`); // Should be caught by balance check earlier, but good practice
+                    // This should theoretically be caught by the totalBalance check earlier,
+                    // but it's good defensive programming.
+                    throw new Error(`No coin objects found for ${tokenSymbol}.`);
                 }
 
+                // Get a reference to the primary coin object within the transaction block.
                 const primaryCoinRef = txb.object(primaryCoin.coinObjectId);
                 let currentBalance = BigInt(primaryCoin.balance);
 
-                // If primary coin is not enough, merge others into it
+                // If the largest coin isn't enough, try merging smaller coins into it.
                 if (currentBalance < requiredAmount) {
-                    const coinsToMerge: ReturnType<typeof txb.object>[] = [];
+                    const coinsToMergeRefs: ReturnType<typeof txb.object>[] = [];
                     for (let i = 1; i < sortedCoins.length; i++) {
-                        coinsToMerge.push(txb.object(sortedCoins[i].coinObjectId));
+                        coinsToMergeRefs.push(txb.object(sortedCoins[i].coinObjectId));
                         currentBalance += BigInt(sortedCoins[i].balance);
+                        // Stop merging as soon as we have enough balance.
                         if (currentBalance >= requiredAmount) {
-                            break; // Stop merging once we have enough
+                            break;
                         }
                     }
-                    // Check again after potential merge candidates are identified
+                    // Double-check if merging provided enough balance.
                     if (currentBalance < requiredAmount) {
-                         // This should ideally not happen if totalBalance check passed, but handles edge cases
+                         // This indicates a potential logic error if the initial totalBalance check passed.
                          throw new Error(`Logic error: Total balance sufficient but couldn't gather enough coins for ${tokenSymbol}.`);
                     }
-                    if (coinsToMerge.length > 0) {
-                        console.log(`Merging ${coinsToMerge.length} additional coin(s) for ${tokenSymbol}`);
-                        txb.mergeCoins(primaryCoinRef, coinsToMerge);
+                    // If we identified coins to merge, add the merge operation to the transaction block.
+                    if (coinsToMergeRefs.length > 0) {
+                        console.log(`Merging ${coinsToMergeRefs.length} additional coin(s) for ${tokenSymbol}`);
+                        txb.mergeCoins(primaryCoinRef, coinsToMergeRefs);
                     }
                 }
 
-                // Split the required amount from the primary coin (which might have been merged into)
+                // Split the exact required amount from the primary coin (which may now contain merged balances).
+                // `splitCoins` returns an array of new coin objects; we take the first one.
                 const [splitCoin] = txb.splitCoins(primaryCoinRef, [requiredAmount]);
                 return splitCoin;
             };
 
+            // Prepare the specific coin inputs needed for the `create_pool` function call.
             const splitCoinA = prepareCoinInput(coinsA.data, initialLiquidityA, 'Token A');
             const splitCoinB = prepareCoinInput(coinsB.data, initialLiquidityB, 'Token B');
-            // --- End Enhanced Coin Selection ---
+            // --- End Coin Preparation ---
 
 
-            // Call the create_pool function from the Move module
-            // NOTE: The Move contract version read ('sui/sources/liquidity_pool.move')
-            // only takes coin_a, coin_b, and ctx. It does NOT take AdminCap or fee arguments.
-            // Adjusting the call accordingly. If your deployed contract *does* take those,
-            // revert this call to the previous version.
+            // --- Move Call ---
+            // Construct the call to the `create_pool` function in the deployed Move module.
+            // IMPORTANT: Ensure the `target`, `typeArguments`, and `arguments` match the
+            // exact signature of the deployed `create_pool` function on-chain.
+            // This version assumes the function takes only the two coin objects as arguments
+            // besides the implicit context (`ctx`).
             txb.moveCall({
-                target: `${SUI_PACKAGE_ID}::liquidity_pool::create_pool`,
-                typeArguments: [tokenAAddress, tokenBAddress], // Specify the coin types
+                target: `${SUI_PACKAGE_ID}::liquidity_pool::create_pool`, // Function identifier: package::module::function
+                typeArguments: [tokenAAddress, tokenBAddress], // Generic types for the pool (CoinTypeA, CoinTypeB)
                 arguments: [
-                    // Arguments based on the contract version read:
-                    splitCoinA, // Pass the split coin object for token A
-                    splitCoinB, // Pass the split coin object for token B
-                    // ctx is implicit
+                    splitCoinA, // The prepared coin object for Token A.
+                    splitCoinB, // The prepared coin object for Token B.
                 ],
             });
 
-            // Set gas budget, etc.
-            txb.setGasBudget(30000000); // Increased budget slightly
+            // Set a gas budget for the transaction. Adjust as needed based on network conditions and transaction complexity.
+            txb.setGasBudget(30_000_000); // Using underscores for readability
 
-            console.log('Transaction Block:', JSON.stringify(txb.blockData, null, 2));
+            console.log('Transaction Block Data:', JSON.stringify(txb.blockData, null, 2));
 
 
-            // Sign and execute the transaction
-            // Aligning with @suiet/wallet-kit documentation example
-            // Use the correct return type from the wallet kit method
+            // --- Sign and Execute ---
+            // Use the connected wallet adapter (`@suiet/wallet-kit`) to sign and execute the transaction block.
             const result: SuiSignAndExecuteTransactionOutput = await wallet.signAndExecuteTransaction({
-                transaction: txb, // Pass the Transaction instance using the 'transaction' property
+                transaction: txb, // Pass the constructed Transaction instance.
             });
 
-            console.log('Transaction Result (from wallet kit):', result);
-            toast.success(`Pool created successfully! Digest: ${result.digest}`);
+            console.log('Transaction submitted:', result);
+            toast.success(`Pool creation transaction submitted! Digest: ${result.digest.substring(0, 10)}...`);
 
-            // Fetch the full transaction details to get parsed effects
-            console.log('Fetching full transaction details for digest:', result.digest);
+            // --- Transaction Confirmation and Result Parsing ---
+            console.log('Waiting for transaction confirmation and fetching details for digest:', result.digest);
+            // Fetch the transaction details using the digest to get the effects and object changes.
+            // `showEffects` and `showObjectChanges` are crucial for seeing the outcome.
             const txDetails = await client.getTransactionBlock({
                 digest: result.digest,
-                options: { showEffects: true }, // Ensure effects are included and parsed
+                options: { showEffects: true, showObjectChanges: true }, // Request effects and object changes
             });
             console.log('Full Transaction Details:', txDetails);
 
-            // Optional: Find the created pool object ID from the parsed effects or object changes
-            const effects: TransactionEffects | null | undefined = txDetails.effects; // Allow null type
-            const objectChanges: SuiObjectChange[] | null | undefined = txDetails.objectChanges; // Allow null type
+            // Check if the transaction was successful based on effects status.
+            if (txDetails.effects?.status.status !== 'success') {
+                throw new Error(`Transaction failed: ${txDetails.effects?.status.error || 'Unknown error'}`);
+            }
 
-            // Example using objectChanges (more reliable for finding created object details)
+            toast.success(`Pool created successfully! Digest: ${result.digest.substring(0, 10)}...`);
+
+            // Attempt to find the newly created Pool object ID.
+            // Using `objectChanges` is generally more reliable as it provides the object type.
+            const objectChanges = txDetails.objectChanges;
             if (objectChanges) {
+                // Find the change record for an object that was 'created' and matches the Pool type structure.
                 const createdPoolChange = objectChanges.find(
-                    (change): change is SuiObjectChangeCreated => // Type guard
+                    (change): change is SuiObjectChangeCreated => // Type guard to ensure correct properties
                         change.type === 'created' &&
-                        change.objectType.includes('::liquidity_pool::Pool') // Check the objectType string
+                        change.objectType.endsWith('::liquidity_pool::Pool') // Check if the type string ends with the Pool struct name
                 );
                 if (createdPoolChange) {
-                    console.log("Created Pool Object ID (from objectChanges):", createdPoolChange.objectId);
+                    console.log("Created Pool Object ID:", createdPoolChange.objectId);
                     console.log("Created Pool Object Type:", createdPoolChange.objectType);
+                    // TODO: Potentially return or store this pool ID for later use.
+                } else {
+                    console.warn("Could not find created Pool object in objectChanges.");
+                }
+            } else {
+                console.warn("Transaction details did not include objectChanges.");
+                // Fallback: Look at effects.created (less reliable for type checking)
+                const effects = txDetails.effects;
+                if (effects?.created && effects.created.length > 0) {
+                     console.log("Found created objects in effects (type unknown without objectChanges):", effects.created.map(o => o.reference.objectId));
                 }
             }
-            // Example using effects.created (less detailed)
-            else if (effects && effects.created && effects.created.length > 0) {
-                 const createdObjects: OwnedObjectRef[] = effects.created;
-                 // Note: Cannot reliably get objectType from effects.created alone.
-                 // You might find *an* object, but confirming it's the pool requires objectChanges or separate fetches.
-                 console.log("Found created objects in effects (less detailed):", createdObjects.map(o => o.reference.objectId)); // Correct property access
-                 // const poolObjectRef = createdObjects.find(obj => /* some heuristic, but type info isn't here */);
-                 // if (poolObjectRef) console.log("Created Pool Object ID (from effects):", poolObjectRef.reference.objectId); // Correct property access
-            }
-
 
         } catch (error: any) {
             console.error('Error creating Sui pool:', error);
             let errorMessage = error.message || error.toString();
+            // Provide more user-friendly error messages for common issues.
              if (error instanceof Error && error.message.includes('InsufficientGas')) {
-                 errorMessage = 'Insufficient gas budget. Please try increasing it or check network fees.';
-            } else if (error instanceof Error && error.message.includes('Coin balance insufficient') || error.message.includes('Insufficient balance')) {
-                 errorMessage = 'Insufficient token balance for initial liquidity.';
-            } else if (error instanceof Error && error.message.includes('Unable to fetch')) {
-                errorMessage = `Network error or invalid token address: ${errorMessage}`;
+                 errorMessage = 'Insufficient gas budget for the transaction.';
+            } else if (error instanceof Error && (error.message.includes('Coin balance insufficient') || error.message.includes('Insufficient balance'))) {
+                 errorMessage = 'Insufficient token balance for the initial liquidity amount.';
+            } else if (error instanceof Error && error.message.includes('Unable to fetch') || error.message.includes('Failed to fetch')) {
+                errorMessage = `Network error or potentially invalid token address: ${errorMessage}`;
+            } else if (error instanceof Error && error.message.includes('Transaction failed:')) {
+                // Extract the specific error from the transaction failure message if available
+                errorMessage = error.message;
             }
-            // Add more specific error checks based on common Sui errors
+            // Add more specific error checks based on common Sui contract errors if needed.
             toast.error(`Failed to create pool: ${errorMessage}`);
         }
     };

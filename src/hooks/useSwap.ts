@@ -120,41 +120,45 @@ export function useSwap() {
 
   // --- Other functions (calculateOutputAmount, getSwapRoute, getPriceImpact) still need real implementation ---
 
+  // Mock implementation of output amount calculation
+  // TODO: Replace with actual price calculation logic from AMM pools
   const calculateOutputAmount = async (
     _fromToken: string,
     _toToken: string,
-    amount: string, // Keep amount as it's used
+    amount: string,
     reverse = false
   ) => {
-    // Here you would implement the actual price calculation logic
-    // This is just a simulation
+    // Simulate network delay
     await new Promise(resolve => setTimeout(resolve, 500));
 
     const rate = reverse ? 0.5 : 2;
     return parseFloat(amount) * rate;
   };
 
+  // Mock implementation of swap route calculation
+  // TODO: Implement actual routing logic with path finding algorithm
   const getSwapRoute = async (
-    fromToken: string, // Keep fromToken as it's used
-    toToken: string,   // Keep toToken as it's used
+    fromToken: string,
+    toToken: string,
     _amount: string
   ) => {
-    // Here you would implement the actual routing logic
-    // This is just a simulation
+    // Simulate network delay
     await new Promise(resolve => setTimeout(resolve, 500));
 
     return [fromToken, toToken];
   };
 
+  // Mock implementation of price impact calculation
+  // TODO: Implement actual price impact calculation based on pool depth
   const getPriceImpact = async (
     _fromToken: string,
     _toToken: string,
-    amount: string // Keep amount as it's used
+    amount: string
   ) => {
-    // Here you would implement the actual price impact calculation
-    // This is just a simulation
+    // Simulate network delay
     await new Promise(resolve => setTimeout(resolve, 500));
 
+    // Simple simulation - higher amounts have higher impact
     return parseFloat(amount) > 1000 ? 2.5 : 0.5;
   };
 

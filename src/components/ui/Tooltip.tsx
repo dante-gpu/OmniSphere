@@ -13,6 +13,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
 }) => {
   const [isVisible, setIsVisible] = useState(false);
 
+  // Map position prop to appropriate CSS classes for positioning
   const positionClasses = {
     top: 'bottom-full left-1/2 -translate-x-1/2 mb-2',
     bottom: 'top-full left-1/2 -translate-x-1/2 mt-2',
@@ -37,6 +38,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
           `}
         >
           {content}
+          {/* Triangle pointer that points to the target element */}
           <div
             className={`
               absolute w-2 h-2 bg-neutral-800 transform rotate-45

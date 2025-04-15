@@ -56,7 +56,7 @@ import rayIcon from '../icons/ray.png'; // Added (assuming exists)
 import srmIcon from '../icons/srm.png'; // Added (assuming exists)
 import orcaIcon from '../icons/orca.png'; // Added (assuming exists)
 
-// TokenIcons'ı daha strict bir şekilde tanımla
+// Define token icons with strict typing
 const tokenIcons = {
   SUI: suiIcon,
   SOL: solIcon,
@@ -74,8 +74,8 @@ const tokenIcons = {
   ORCA: orcaIcon
 } as const; 
 
-
-type Token = keyof typeof tokenIcons; // Keep Token type if needed elsewhere, or remove if Pool type from context is sufficient
+// Create a type from the token icon keys for better type safety
+type Token = keyof typeof tokenIcons;
 
 type TabType = 'add' | 'remove';
 

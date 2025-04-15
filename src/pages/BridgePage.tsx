@@ -99,23 +99,23 @@ const BridgePage = () => {
   const handleBridge = useCallback(async () => {
     setBridgeResult(null); // Clear previous result
 
-    // --- YENİ: Adres Doğrulama Başlangıcı ---
+    // Address validation section
+    // Validate recipient address based on destination chain
     let isValidAddress = false;
     if (toChain === 'Solana') {
       try {
-        // PublicKey oluşturmaya çalış, hata verirse geçersizdir.
-        // isOnCurve, adresin geçerli bir ed25519 public key olup olmadığını kontrol eder.
+        // Try to create a PublicKey and check if it's on the ed25519 curve
         const publicKey = new PublicKey(recipientAddress);
         isValidAddress = PublicKey.isOnCurve(publicKey.toBytes());
       } catch (error) {
-        isValidAddress = false; // PublicKey oluşturma hatası = geçersiz adres
+        isValidAddress = false; // PublicKey creation error means invalid address
       }
       if (!isValidAddress) {
         toast.error("Invalid Solana recipient address.");
         return;
       }
     } else if (toChain === 'Sui') {
-      // Basit regex: '0x' ile başlar ve 64 hex karakter içerir
+      // Simple regex: starts with '0x' followed by 64 hex characters
       const suiAddressRegex = /^0x[a-fA-F0-9]{64}$/;
       isValidAddress = suiAddressRegex.test(recipientAddress);
       if (!isValidAddress) {
@@ -123,21 +123,19 @@ const BridgePage = () => {
         return;
       }
     }
-    // --- YENİ: Adres Doğrulama Sonu ---
 
-
-    // Input Validation
+    // Input validation
     if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
       toast.error("Please enter a valid amount.");
       return;
     }
     if (!recipientAddress) {
-      toast.error("Please enter a recipient address."); // Bu kontrol kalabilir.
+      toast.error("Please enter a recipient address.");
       return;
     }
 
-    let sourceSigner: Signer | null = null; // Use imported Signer type
-    let sourceWalletAdapter: any = null; // To hold the specific wallet adapter
+    let sourceSigner: Signer | null = null;
+    let sourceWalletAdapter: any = null;
 
     if (fromChain === 'Solana') {
       if (!solanaWallet.connected || !solanaWallet.wallet || !solanaWallet.publicKey) {
