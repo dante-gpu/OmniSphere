@@ -136,7 +136,9 @@ const CreatePoolPage = () => {
         dataToSubmit = {
             token1Symbol: token1.symbol,
             token2Symbol: token2.symbol,
-            feeBasisPoints: feeBasisPoints, // Pass fee for Solana
+            feeBasisPoints: feeBasisPoints,
+            token1Amount: token1Amount, // Add amount for initial liquidity
+            token2Amount: token2Amount, // Add amount for initial liquidity
         };
         mutationToCall = createSolanaPoolMutation;
         console.log('Submitting Solana Create Pool Data:', dataToSubmit);

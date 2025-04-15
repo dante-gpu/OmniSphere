@@ -67,34 +67,54 @@ export function useCreateSuiPool() {
         const amount1BigInt = parseUnits(input.token1Amount, token1Info.decimals);
         const amount2BigInt = parseUnits(input.token2Amount, token2Info.decimals);
 
-        // 2. Prepare Coin objects for transfer
-        // This is a simplified approach assuming the user has sufficient balance in primary coin objects.
-        // A robust solution would query coins and potentially merge/split as needed.
-        let coin1Object;
-        if (token1Info.type === '0x2::sui::SUI') {
-          [coin1Object] = txb.splitCoins(txb.gas, [txb.pure(amount1BigInt.toString())]);
-        } else {
-          // Find a coin of the specified type - this needs error handling and better selection logic
-          const coins = await suiClient.getCoins({ owner: suiWallet.account.address, coinType: token1Info.type });
-          if (coins.data.length === 0) throw new Error(`Insufficient ${input.token1Symbol} balance or no suitable coin object found.`);
-          // For simplicity, take the first coin object ID. A real app should select coins to cover the amount.
-          const primaryCoin1Id = coins.data[0].coinObjectId;
-          [coin1Object] = txb.splitCoins(txb.object(primaryCoin1Id), [txb.pure(amount1BigInt.toString())]);
-        }
+        // 2. Prepare Coin objects for transfer (More Robust Approach)
+        const owner = suiWallet.account.address;
 
-        let coin2Object;
-        if (token2Info.type === '0x2::sui::SUI') {
-          // Cannot split gas twice in the same way, handle SUI-SUI pair if needed or adjust logic
-          if (token1Info.type === '0x2::sui::SUI') throw new Error("Cannot use SUI for both tokens with this simplified coin handling.");
-          [coin2Object] = txb.splitCoins(txb.gas, [txb.pure(amount2BigInt.toString())]);
-        } else {
-          const coins = await suiClient.getCoins({ owner: suiWallet.account.address, coinType: token2Info.type });
-          if (coins.data.length === 0) throw new Error(`Insufficient ${input.token2Symbol} balance or no suitable coin object found.`);
-          const primaryCoin2Id = coins.data[0].coinObjectId;
-          [coin2Object] = txb.splitCoins(txb.object(primaryCoin2Id), [txb.pure(amount2BigInt.toString())]);
-        }
+        const prepareCoin = async (tokenSymbol: string, tokenInfo: { type: string; decimals: number }, amountBigInt: bigint) => {
+            if (tokenInfo.type === '0x2::sui::SUI') {
+                // For SUI, split directly from gas
+                const [suiCoin] = txb.splitCoins(txb.gas, [txb.pure(amountBigInt.toString())]);
+                return suiCoin;
+            } else {
+                // For other tokens, find coins, merge if necessary, then split
+                const coins = await suiClient.getCoins({ owner, coinType: tokenInfo.type });
+                if (coins.data.length === 0) {
+                    throw new Error(`No ${tokenSymbol} coins found in wallet.`);
+                }
+
+                // Check total balance
+                const totalBalance = coins.data.reduce((sum, coin) => sum + BigInt(coin.balance), 0n);
+                if (totalBalance < amountBigInt) {
+                    throw new Error(`Insufficient ${tokenSymbol} balance. Required: ${amountBigInt}, Available: ${totalBalance}`);
+                }
+
+                // Select coins to cover the amount
+                const inputCoinObjects = [];
+                let collectedAmount = 0n;
+                for (const coin of coins.data) {
+                    inputCoinObjects.push(txb.object(coin.coinObjectId));
+                    collectedAmount += BigInt(coin.balance);
+                    if (collectedAmount >= amountBigInt) break;
+                }
+
+                // Merge coins if more than one is needed
+                const primaryCoin = inputCoinObjects.shift()!; // Take the first coin
+                if (inputCoinObjects.length > 0) {
+                    txb.mergeCoins(primaryCoin, inputCoinObjects);
+                }
+
+                // Split the required amount
+                const [splitCoin] = txb.splitCoins(primaryCoin, [txb.pure(amountBigInt.toString())]);
+                return splitCoin;
+            }
+        };
+
+        const coin1Object = await prepareCoin(input.token1Symbol, token1Info, amount1BigInt);
+        const coin2Object = await prepareCoin(input.token2Symbol, token2Info, amount2BigInt);
 
         // 3. Call the create_pool function
+        // The create_pool function returns the Pool object itself, but we don't capture it here directly.
+        // We'll rely on events or querying later if needed.
         txb.moveCall({
           target: `${SUI_PACKAGE_ID}::${SUI_LIQUIDITY_POOL_MODULE}::create_pool`,
           typeArguments: [token1Info.type, token2Info.type],

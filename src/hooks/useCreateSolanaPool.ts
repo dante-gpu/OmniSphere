@@ -2,12 +2,13 @@ import { useMutation } from 'react-query';
 import { useWallet as useSolanaWallet, useConnection } from '@solana/wallet-adapter-react';
 import toast from 'react-hot-toast';
 import { PublicKey, SystemProgram, Transaction, SYSVAR_RENT_PUBKEY } from '@solana/web3.js'; // Import SYSVAR_RENT_PUBKEY
-import { Program, AnchorProvider, BN, web3 } from '@project-serum/anchor'; // Import web3 from anchor
-import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import { Program, AnchorProvider, BN, web3 } from '@project-serum/anchor';
+import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from '@solana/spl-token'; // Import ASSOCIATED_TOKEN_PROGRAM_ID
 import { sha256 } from 'js-sha256';
 import { Buffer } from 'buffer';
-import { trackSolanaToWormhole } from '../lib/wormholePoolBridge.ts'; // Import the tracking function
-import { SOLANA_DEVNET_PROGRAM_ID } from '../lib/constants.ts'; // Import program ID constant
+import { trackSolanaToWormhole } from '../lib/wormholePoolBridge.ts';
+import { SOLANA_DEVNET_PROGRAM_ID } from '../lib/constants.ts';
+import { parseUnits } from 'ethers'; // For parsing amounts
 
 // Assuming your IDL is imported/available, replace with actual import
 import idl from '../../programs/liquidity_pool/target/idl/liquidity_pool_program.json'; // Adjust path as needed
@@ -35,12 +36,14 @@ const SOL_TOKEN_MAP: { [symbol: string]: { mint_address: string; decimals: numbe
 interface CreateSolanaPoolInput {
   token1Symbol: string;
   token2Symbol: string;
-  feeBasisPoints: number; // Fee in basis points (e.g., 30 for 0.3%)
-  // Amounts are not needed for pool creation itself, only for initial liquidity
+  feeBasisPoints: number;
+  token1Amount: string; // Amount needed for initial liquidity
+  token2Amount: string; // Amount needed for initial liquidity
 }
 
 // Define specific result type
-type SolanaPoolCreationResult = { success: boolean; poolId: string; txSignature: string }; // Return actual signature
+// txSignature will now be for the add_liquidity tx
+type SolanaPoolCreationResult = { success: boolean; poolId: string; txSignature: string };
 
 // Helper function to generate deterministic pool ID
 const generatePoolId = (mintA: PublicKey, mintB: PublicKey): Buffer => {
@@ -117,10 +120,11 @@ export function useCreateSolanaPool() {
         );
 
         // 5. Build the transaction
-        const txSignature = await program.methods
+        // 5. Build and send createPool transaction
+        const createPoolTxSignature = await program.methods
           .createPool(new BN(input.feeBasisPoints), poolIdArg)
           .accounts({
-            creator: provider.wallet.publicKey,
+            creator: provider.wallet.publicKey, // User pays for account creation
             pool: poolPda,
             poolAuthority: poolAuthorityPda,
             tokenAMint: tokenAMint,
@@ -130,13 +134,56 @@ export function useCreateSolanaPool() {
             tokenBAccount: tokenBAccountPda,
             systemProgram: SystemProgram.programId,
             tokenProgram: TOKEN_PROGRAM_ID,
-            rent: SYSVAR_RENT_PUBKEY, // Use imported SYSVAR_RENT_PUBKEY
+            rent: SYSVAR_RENT_PUBKEY,
           })
-          .rpc(); // Use rpc() to build, sign, and send
+          .rpc();
 
-        console.log("Solana create_pool transaction successful:", txSignature);
+        console.log("Solana create_pool transaction successful:", createPoolTxSignature);
+        await connection.confirmTransaction(createPoolTxSignature, 'confirmed');
+        console.log("Solana create_pool transaction confirmed.");
 
-        return { success: true, poolId: poolPda.toBase58(), txSignature };
+        // 6. Build and send addLiquidity transaction for initial deposit
+        console.log("Adding initial liquidity...");
+
+        // Parse amounts
+        const amount1BigInt = parseUnits(input.token1Amount, token1Info.decimals);
+        const amount2BigInt = parseUnits(input.token2Amount, token2Info.decimals);
+
+        // Get user's ATA addresses (assuming they exist, might need creation logic elsewhere)
+        const userTokenAAccount = getAssociatedTokenAddressSync(tokenAMint, provider.wallet.publicKey);
+        const userTokenBAccount = getAssociatedTokenAddressSync(tokenBMint, provider.wallet.publicKey);
+        const userLpTokenAccount = getAssociatedTokenAddressSync(lpMintPda, provider.wallet.publicKey); // ATA for the LP mint PDA
+
+        const addLiquidityTxSignature = await program.methods
+            .addLiquidity(
+                new BN(amount1BigInt.toString()), // amount_a_desired
+                new BN(amount2BigInt.toString()), // amount_b_desired
+                new BN(0), // amount_a_min (set to 0 for initial liquidity)
+                new BN(0)  // amount_b_min (set to 0 for initial liquidity)
+            )
+            .accounts({
+                user: provider.wallet.publicKey,
+                pool: poolPda,
+                poolAuthority: poolAuthorityPda,
+                tokenAAccount: tokenAAccountPda,
+                tokenBAccount: tokenBAccountPda,
+                userTokenA: userTokenAAccount,
+                userTokenB: userTokenBAccount,
+                lpMint: lpMintPda,
+                userLpTokenAccount: userLpTokenAccount,
+                systemProgram: SystemProgram.programId,
+                tokenProgram: TOKEN_PROGRAM_ID,
+                associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID, // Use imported constant
+                rent: SYSVAR_RENT_PUBKEY,
+            })
+            .rpc();
+
+        console.log("Solana add_liquidity transaction successful:", addLiquidityTxSignature);
+        await connection.confirmTransaction(addLiquidityTxSignature, 'confirmed');
+        console.log("Solana add_liquidity transaction confirmed.");
+
+        // Return the signature of the add_liquidity tx for Wormhole tracking
+        return { success: true, poolId: poolPda.toBase58(), txSignature: addLiquidityTxSignature };
 
       } catch (error: any) {
         console.error("Solana pool creation failed:", error);
@@ -148,11 +195,12 @@ export function useCreateSolanaPool() {
       }
     },
     {
-      onSuccess: async (result) => { // Make onSuccess async
-        toast.success(`Solana pool creation submitted! Signature: ${result.txSignature.substring(0, 10)}...`);
-        console.log("Solana Pool Creation Submitted:", result);
+      onSuccess: async (result) => {
+        // Toast updated to reflect both steps completed before tracking
+        toast.success(`Solana pool created & initial liquidity added! Signature: ${result.txSignature.substring(0, 10)}...`);
+        console.log("Solana Pool Creation & Initial Liquidity Submitted:", result);
 
-        // Initiate Wormhole bridge tracking
+        // Initiate Wormhole bridge tracking using the add_liquidity signature
         toast.loading('Tracking Wormhole message...', { id: 'wormhole-track-sol' });
         const bridgeResult = await trackSolanaToWormhole(
             connection, // Use connection from useConnection hook
