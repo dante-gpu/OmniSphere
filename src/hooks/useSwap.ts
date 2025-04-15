@@ -1,7 +1,7 @@
 import { useWallet as useSuiWallet } from '@suiet/wallet-kit'; // Use renamed hook
-import { TransactionBlock } from '@mysten/sui.js/transactions';
+import { Transaction } from '@mysten/sui/transactions'; // Import directly again
 // Potentially need SuiClient and getFullnodeUrl for reading data later
-// import { SuiClient, getFullnodeUrl } from '@mysten/sui.js/client';
+// import { SuiClient, getFullnodeUrl } from '@mysten/sui/client'; // Use the primary package path
 import toast from 'react-hot-toast';
 import { utils } from 'ethers'; // For amount conversion
 
@@ -19,22 +19,22 @@ interface SwapParams {
 
 // TODO: Implement this helper function based on token pair
 // This might involve reading on-chain state or using a known mapping
-const getPoolObjectIdForPair = (tokenAType: string, tokenBType: string): string => {
+const getPoolObjectIdForPair = (_tokenAType: string, _tokenBType: string): string => {
   console.warn("getPoolObjectIdForPair is not implemented. Using placeholder.");
-  // Example: return mapping[`${tokenAType}-${tokenBType}`] || '0xPOOL_OBJECT_ID_PLACEHOLDER';
+  // Example: return mapping[`${_tokenAType}-${_tokenBType}`] || '0xPOOL_OBJECT_ID_PLACEHOLDER';
   return '0xPOOL_OBJECT_ID_PLACEHOLDER';
 }
 
 // TODO: Implement this helper function to get Coin objects from user's balance
 // This requires fetching user's coins and potentially splitting them
 const getInputCoinObject = async (
-  wallet: ReturnType<typeof useSuiWallet>,
-  tokenType: string,
-  amountBigInt: bigint
+  _wallet: ReturnType<typeof useSuiWallet>,
+  _tokenType: string,
+  _amountBigInt: bigint
 ): Promise<string | null> => {
    console.warn("getInputCoinObject is not implemented. Returning null.");
    // Logic to find a suitable coin object ID or split coins
-   // const coins = await wallet.client.getCoins({ owner: wallet.account.address, coinType: tokenType });
+   // const coins = await _wallet.client.getCoins({ owner: _wallet.account.address, coinType: _tokenType });
    // Find or split coin...
    return null; // Placeholder
 }
@@ -55,7 +55,7 @@ export function useSwap() {
        throw new Error('Wallet does not support signing transactions.');
     }
 
-    const { fromToken, toToken, fromAmount, slippage } = params;
+    const { fromToken, toToken, fromAmount, slippage: _slippage } = params; // Prefix slippage
     const toastId = toast.loading('Preparing swap transaction...');
 
     try {
@@ -80,8 +80,8 @@ export function useSwap() {
       console.warn("Using placeholder minAmountOutBigInt = 0");
 
 
-      // 5. Create Transaction Block
-      const txb = new TransactionBlock();
+      // 5. Create Transaction
+      const txb = new Transaction(); // Revert back to Transaction
 
       // The target function signature is assumed based on common AMM patterns.
       // Replace with the actual function signature from your Move contract.
@@ -91,15 +91,17 @@ export function useSwap() {
         arguments: [
           txb.object(poolObjectId), // The pool object
           txb.object(inputCoinObjectId), // The input coin object ID
-          txb.pure(minAmountOutBigInt.toString()), // Minimum amount of output token expected
+          txb.pure.u64(minAmountOutBigInt), // Specify type, e.g., u64 (adjust if contract expects u128)
         ],
         typeArguments: [fromToken.type, toToken.type], // Pass token types as type arguments
       });
 
-      // 6. Sign and execute the transaction
+      // 6. Sign and execute the transaction using the deprecated function
       toast.loading('Please approve the transaction in your wallet...', { id: toastId });
+      // WORKAROUND: Use 'as any' to bypass the Transaction type mismatch due to dependency conflict.
+      // The proper fix is to resolve the duplicate @mysten/sui.js versions in package.json/lock file.
       const result = await signAndExecuteTransactionBlock({
-        transactionBlock: txb as any, // Cast to any to bypass TS error
+        transactionBlock: txb as any, // Pass the Transaction instance with type assertion
         // options: { showEffects: true } // Optional: to get more details
       });
 
@@ -118,40 +120,40 @@ export function useSwap() {
   // --- Other functions (calculateOutputAmount, getSwapRoute, getPriceImpact) still need real implementation ---
 
   const calculateOutputAmount = async (
-    fromToken: string,
-    toToken: string,
-    amount: string,
+    _fromToken: string,
+    _toToken: string,
+    amount: string, // Keep amount as it's used
     reverse = false
   ) => {
     // Here you would implement the actual price calculation logic
     // This is just a simulation
     await new Promise(resolve => setTimeout(resolve, 500));
-    
+
     const rate = reverse ? 0.5 : 2;
     return parseFloat(amount) * rate;
   };
 
   const getSwapRoute = async (
-    fromToken: string,
-    toToken: string,
-    amount: string
+    fromToken: string, // Keep fromToken as it's used
+    toToken: string,   // Keep toToken as it's used
+    _amount: string
   ) => {
     // Here you would implement the actual routing logic
     // This is just a simulation
     await new Promise(resolve => setTimeout(resolve, 500));
-    
+
     return [fromToken, toToken];
   };
 
   const getPriceImpact = async (
-    fromToken: string,
-    toToken: string,
-    amount: string
+    _fromToken: string,
+    _toToken: string,
+    amount: string // Keep amount as it's used
   ) => {
     // Here you would implement the actual price impact calculation
     // This is just a simulation
     await new Promise(resolve => setTimeout(resolve, 500));
-    
+
     return parseFloat(amount) > 1000 ? 2.5 : 0.5;
   };
 

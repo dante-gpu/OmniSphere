@@ -1,7 +1,8 @@
-import * as React from 'react'; // Changed import style
+
 import { useState, useMemo } from 'react'; // Kept named imports
 import { Link } from 'react-router-dom'; // Removed useNavigate
 import { ArrowLeft, Settings, ChevronDown, Plus } from 'lucide-react'; // Removed Info, RefreshCw
+import { useWallet } from '@suiet/wallet-kit'; // Import useWallet
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader } from '../components/ui/Card'; // Import Card parts
 import { TokenSelect } from '../components/forms/TokenSelect';
@@ -11,8 +12,9 @@ import { Dropdown } from '../components/ui/Dropdown';
 import { useCreateSuiPool } from '../hooks/useCreateSuiPool';
 import { useCreateSolanaPool } from '../hooks/useCreateSolanaPool';
 import { Alert } from '../components/ui/Alert'; // Import Alert
-import toast from 'react-hot-toast'; // Import toast
+import toast from 'react-hot-toast'; // Re-add toast import for Solana
 import { usePools, Token as PoolToken } from '../context/PoolContext'; // Removed Pool import
+import { parseUnits, formatUnits } from 'ethers/lib/utils'; // Correct import path for ethers v5 utils
 
 // Import all icons
 import suiIcon from '../icons/sui.webp';
@@ -67,14 +69,30 @@ const CreatePoolPage = () => {
   const [slippageTolerance, setSlippageTolerance] = useState('0.5');
   const [showSettings, setShowSettings] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [isSuiCreating, setIsSuiCreating] = useState(false); // Add state for Sui loading
   const { addPool } = usePools(); // Get addPool function from context
+  const wallet = useWallet(); // Get wallet context
 
   // Conditionally use the correct hook based on the selected chain
-  const createSuiPoolMutation = useCreateSuiPool();
-  const createSolanaPoolMutation = useCreateSolanaPool();
+  const { createPool: createSuiPool } = useCreateSuiPool(); // Destructure the createPool function
+  const createSolanaPoolMutation = useCreateSolanaPool(); // Keep Solana hook as is for now
 
-  // Determine the active mutation based on the selected chain
-  const activeMutation = selectedChain === 'sui' ? createSuiPoolMutation : createSolanaPoolMutation;
+  // Determine the active mutation *state* (isLoading) based on the selected chain
+  const isSolanaLoading = createSolanaPoolMutation.isLoading;
+  // Use the new isSuiCreating state for Sui loading
+  const isLoading = selectedChain === 'sui' ? isSuiCreating : isSolanaLoading;
+
+
+  // --- Placeholder Sui Token Info ---
+  // IMPORTANT: Replace '0x...' with the ACTUAL package IDs for your target network (devnet/testnet/mainnet)
+  const SUI_TOKEN_INFO: { [symbol: string]: { address: string; decimals: number } } = {
+    'SUI': { address: '0x2::sui::SUI', decimals: 9 }, // Native SUI
+    'USDC': { address: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa::usdc::USDC', decimals: 6 }, // Replace 0xaaaa... with actual USDC package ID
+    'USDT': { address: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb::usdt::USDT', decimals: 6 }, // Replace 0xbbbb... with actual USDT package ID
+    // Add other Sui tokens used in MOCK_TOKENS here with their correct addresses and decimals
+  };
+  // --- End Placeholder ---
+
 
   // Define available tokens based on selected chain
   const availableTokens: Token[] = useMemo(() => {
@@ -99,8 +117,10 @@ const CreatePoolPage = () => {
     return null;
   }, [token1, token2, token1Amount, token2Amount]);
 
-  const handleCreatePoolSubmit = () => {
+  const handleCreatePoolSubmit = async () => { // Make async
     setFormError(null); // Clear previous errors
+
+    // Basic form validation
     if (!token1 || !token2) {
       setFormError('Please select both tokens.');
       return;
@@ -118,77 +138,126 @@ const CreatePoolPage = () => {
         return;
     }
 
-    // Define fee (e.g., 0.3% = 30 basis points) - Can be made configurable later
-    const feeBasisPoints = 30;
-
-    let dataToSubmit: any; // Use 'any' for now, or define a union type
-    let mutationToCall: any; // Use 'any' for now
-
+    // Chain-specific logic
     if (selectedChain === 'sui') {
-        dataToSubmit = {
-            token1Symbol: token1.symbol,
-            token2Symbol: token2.symbol,
-            token1Amount: token1Amount,
-            token2Amount: token2Amount,
-        };
-        mutationToCall = createSuiPoolMutation;
-        console.log('Submitting Sui Create Pool Data:', dataToSubmit);
+        // --- Sui Specific Logic ---
+        if (!wallet.connected || !wallet.address) {
+            setFormError('Please connect your Sui wallet.');
+            return;
+        }
+
+        const token1Info = SUI_TOKEN_INFO[token1.symbol];
+        const token2Info = SUI_TOKEN_INFO[token2.symbol];
+
+        if (!token1Info || !token2Info) {
+            setFormError(`Token details not found for ${!token1Info ? token1.symbol : ''} ${!token2Info ? token2.symbol : ''} on Sui. Check constants.`);
+            return;
+        }
+
+        setIsSuiCreating(true); // Start loading for Sui
+        setFormError(null); // Clear previous errors before trying
+
+        try {
+            // Convert amounts to BigNumber then to bigint based on decimals
+            const amount1BN = parseUnits(token1Amount, token1Info.decimals);
+            const amount2BN = parseUnits(token2Amount, token2Info.decimals);
+            const amount1BigInt = amount1BN.toBigInt(); // Convert to bigint
+            const amount2BigInt = amount2BN.toBigInt(); // Convert to bigint
+
+            console.log(`Creating Sui Pool: ${token1.symbol}/${token2.symbol}`);
+            console.log(`  Token A: ${token1Info.address}, Amount: ${amount1BigInt.toString()}`);
+            console.log(`  Token B: ${token2Info.address}, Amount: ${amount2BigInt.toString()}`);
+
+            // Call the specific create function from the hook
+            await createSuiPool({
+                wallet: wallet, // Pass the wallet context
+                tokenAAddress: token1Info.address,
+                tokenBAddress: token2Info.address,
+                initialLiquidityA: amount1BigInt,
+                initialLiquidityB: amount2BigInt,
+            });
+
+            // If createSuiPool succeeds (doesn't throw), add to context
+            // Note: createSuiPool handles its own success toast
+            addPool({
+               name: `${token1.symbol}-${token2.symbol}`, // Use symbols for name
+               chain: 'sui',
+               token1: token1.symbol as PoolToken, // Keep using symbols for context
+               token2: token2.symbol as PoolToken,
+               fee: '0.3%', // Assuming a default fee display
+               token1Amount: token1Amount, // Store original string amount for display?
+               token2Amount: token2Amount,
+               volume24h: '$0', // Placeholder
+               apr: '0.0%', // Placeholder
+               rewards: [], // Placeholder
+            });
+
+            // Reset form on success
+            setToken1(null);
+            setToken2(null);
+            setToken1Amount('');
+            setToken2Amount('');
+            setFormError(null);
+            // navigate('/pools'); // Optional navigation
+
+        } catch (error: any) {
+            // Error handled and toasted within createSuiPool, but set form error too
+            console.error("Error during Sui pool creation submission:", error);
+            // Use a more specific error message if available from the hook's error
+            const displayError = error?.message?.includes('Invalid struct type')
+                ? 'Invalid token address configuration. Please check token details.'
+                : error?.message || 'Unknown error';
+            setFormError(`Sui Pool Creation Failed: ${displayError}`);
+        } finally {
+            setIsSuiCreating(false); // Stop loading for Sui regardless of outcome
+        }
+
     } else { // selectedChain === 'solana'
-        dataToSubmit = {
+        // --- Solana Specific Logic (using react-query mutation) ---
+        setFormError(null); // Clear previous errors before trying
+        const feeBasisPoints = 30; // Example fee
+        const dataToSubmit = {
             token1Symbol: token1.symbol,
             token2Symbol: token2.symbol,
             feeBasisPoints: feeBasisPoints,
-            token1Amount: token1Amount, // Add amount for initial liquidity
-            token2Amount: token2Amount, // Add amount for initial liquidity
+            token1Amount: token1Amount,
+            token2Amount: token2Amount,
         };
-        mutationToCall = createSolanaPoolMutation;
+
         console.log('Submitting Solana Create Pool Data:', dataToSubmit);
-    }
 
-
-    toast.promise(
-       mutationToCall.mutateAsync(dataToSubmit), // Pass the correctly structured data
-       {
-         loading: `Initiating ${selectedChain} pool creation...`,
-         success: (result: any) => { // Added type any to result temporarily
-           // Add the newly created pool to the context
-           // Ensure result structure matches expected success shape from hooks
-           if (result?.success && token1 && token2) {
-             addPool({
-               name: `${token1.symbol}-${token2.symbol}`,
-               chain: selectedChain,
-               token1: token1.symbol as PoolToken,
-               token2: token2.symbol as PoolToken,
-               fee: '0.3%',
-               // Pass initial amounts for context to use
-               token1Amount: token1Amount,
-               token2Amount: token2Amount,
-               // Add required placeholder values for properties not omitted in NewPoolInput
-               volume24h: '$0',
-               apr: '0.0%',
-               rewards: []
-               // tvl, token1Balance, token2Balance etc. are handled by the context's addPool function
-             });
-             // Reset form after successful addition
-             setToken1(null);
-             setToken2(null);
-             setToken1Amount('');
-             setToken2Amount('');
-             setFormError(null);
-             // Optionally navigate after success
-             // navigate('/pools');
-             return 'Pool created successfully!'; // Message for toast
+        // Use react-hot-toast for Solana mutation as it follows react-query pattern
+        toast.promise(
+           createSolanaPoolMutation.mutateAsync(dataToSubmit),
+           {
+             loading: `Initiating Solana pool creation...`,
+             success: (result: any) => {
+               if (result?.success && token1 && token2) {
+                 addPool({
+                   name: `${token1.symbol}-${token2.symbol}`,
+                   chain: 'solana',
+                   token1: token1.symbol as PoolToken,
+                   token2: token2.symbol as PoolToken,
+                   fee: `${(feeBasisPoints / 100).toFixed(2)}%`,
+                   token1Amount: token1Amount,
+                   token2Amount: token2Amount,
+                   volume24h: '$0',
+                   apr: '0.0%',
+                   rewards: []
+                 });
+                 setToken1(null);
+                 setToken2(null);
+                 setToken1Amount('');
+                 setToken2Amount('');
+                 setFormError(null);
+                 return 'Solana Pool created successfully!';
+               }
+               return 'Solana Pool creation simulation complete.';
+             },
+             error: (err: any) => `Solana Pool creation failed: ${err?.message || 'Unknown error'}`,
            }
-           return 'Pool creation simulation complete.'; // Fallback message
-         },
-         error: (err: any) => `Pool creation failed: ${err?.message || 'Unknown error'}`,
-       }
-    );
-    // Reset form on success? Maybe navigate away? - Moved inside success callback
-    // setToken1(null);
-    // setToken2(null);
-    // setToken1Amount('');
-    // setToken2Amount('');
+        );
+    }
   };
 
   const renderSettings = () => (
@@ -379,10 +448,10 @@ const CreatePoolPage = () => {
                 variant="primary"
                 className="w-full mt-4"
             onClick={handleCreatePoolSubmit}
-            isLoading={activeMutation.isLoading} // Use active mutation state
-            disabled={activeMutation.isLoading || !token1 || !token2 || !token1Amount || !token2Amount || parseFloat(token1Amount) <= 0 || parseFloat(token2Amount) <= 0} // Use active mutation state
+            isLoading={isLoading} // Use combined loading state
+            disabled={isLoading || !token1 || !token2 || !token1Amount || !token2Amount || parseFloat(token1Amount) <= 0 || parseFloat(token2Amount) <= 0 || (selectedChain === 'sui' && !wallet.connected)} // Add wallet check for Sui
           >
-            {activeMutation.isLoading ? 'Creating Pool...' : 'Create Pool'}
+            {isLoading ? 'Creating Pool...' : 'Create Pool'}
               </Button>
             </CardContent>
           </Card>

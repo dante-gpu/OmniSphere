@@ -1,5 +1,5 @@
 import { useMutation } from 'react-query';
-import { useWallet as useSuiWallet } from '@suiet/wallet-kit'; // Use Sui wallet hook
+import { useWallet as useSuiWallet } from '@suiet/wallet-kit'; 
 import { useWallet as useSolanaWallet } from '@solana/wallet-adapter-react'; // Use Solana wallet hook
 import toast from 'react-hot-toast';
 import type { AddLiquidityInput } from '../lib/validations/pool';
