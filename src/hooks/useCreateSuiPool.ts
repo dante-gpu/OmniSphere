@@ -8,7 +8,7 @@ import { trackSuiToWormhole } from '../lib/wormholePoolBridge.ts';
 import { SUI_PACKAGE_ID, SOLANA_DEVNET_PROGRAM_ID } from '../lib/constants.ts';
 import { CHAIN_ID_SOLANA } from '@certusone/wormhole-sdk';
 import { PublicKey } from '@solana/web3.js';
-import { Buffer } from 'buffer'; // Import Buffer for hex conversion
+import { Buffer } from 'buffer'; // Import Buffer
 
 // --- Constants ---
 const SUI_LIQUIDITY_POOL_MODULE = 'liquidity_pool';
