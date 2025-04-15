@@ -65,20 +65,24 @@ export async function trackSuiToWormhole(
     const parsedEventData = wormholePublishEvent.parsedJson as BridgeMessagePublishedEvent | undefined;
     const sequence = parsedEventData?.sequence?.toString();
 
-    // Emitter address is usually the package ID or a specific object ID
-    // For now, let's assume the sender_pool_id or similar field holds the emitter concept
-    // This needs verification based on how your contract publishes messages.
-    // Let's assume the emitter is the package ID for now, needs confirmation.
-    const emitterAddressHex = wormholePublishEvent.packageId.replace('0x', ''); // Example: Using package ID as emitter
+    // Emitter address should be derived from the contract logic.
+    // Assuming the 'sender_pool_id' field in the event represents the object
+    // that logically emitted the message via the bridge_interface.
+    // Wormhole expects the emitter address as 32 bytes hex (without 0x).
+    // Sui Object IDs are typically 20 or 32 bytes. We need to pad if necessary.
+    let emitterAddressHex = parsedEventData?.sender_pool_id?.replace('0x', '');
 
     if (!sequence) {
         console.error("Could not find sequence in event JSON:", parsedEventData);
         throw new Error('Could not extract sequence from Wormhole event.');
     }
     if (!emitterAddressHex) {
-        console.error("Could not determine emitter address from packageId:", wormholePublishEvent.packageId);
+        console.error("Could not determine emitter address from event JSON:", parsedEventData);
         throw new Error('Could not determine emitter address from Wormhole event.');
     }
+
+    // Ensure emitter address is 64 hex characters (32 bytes) by padding with leading zeros
+    emitterAddressHex = emitterAddressHex.padStart(64, '0');
 
     const messageInfo: WormholeMessageInfo = {
       sequence,

@@ -3,13 +3,16 @@ import { useWallet as useSuiWallet } from '@suiet/wallet-kit';
 import toast from 'react-hot-toast';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 import { SuiClient, getFullnodeUrl } from '@mysten/sui.js/client';
-// Remove duplicate TransactionBlock import
-import { parseUnits } from 'ethers'; // Using ethers for parsing units
-import { trackSuiToWormhole } from '../lib/wormholePoolBridge.ts'; // Import the tracking function
+import { parseUnits } from 'ethers';
+import { trackSuiToWormhole } from '../lib/wormholePoolBridge.ts';
+import { SUI_PACKAGE_ID, SOLANA_DEVNET_PROGRAM_ID } from '../lib/constants.ts';
+import { CHAIN_ID_SOLANA } from '@certusone/wormhole-sdk';
+import { PublicKey } from '@solana/web3.js';
+import { Buffer } from 'buffer'; // Import Buffer for hex conversion
 
 // --- Constants ---
-const SUI_PACKAGE_ID = '0xee971f83a4e21e2e1c129d4ea7478451a161fe7efd96e76c576a4df04bda6f4e';
-const SUI_LIQUIDITY_POOL_MODULE = 'liquidity_pool'; 
+const SUI_LIQUIDITY_POOL_MODULE = 'liquidity_pool';
+const SUI_BRIDGE_INTERFACE_MODULE = 'bridge_interface'; // Add bridge module
 
 // Define the token mapping (replace with import from a constants file if preferred)
 const SUI_TOKEN_MAP: { [symbol: string]: { type: string; decimals: number } } = {
@@ -32,8 +35,8 @@ interface CreateSuiPoolInput {
   // slippageTolerance: string; // Slippage might not be needed for pool creation itself
 }
 
-// Define specific result type
-type SuiPoolCreationResult = { success: boolean; poolId?: string; txDigest: string }; // Return actual digest
+// Define specific result type (txDigest will be for the *publish* transaction)
+type SuiPoolCreationResult = { success: boolean; poolObjectId?: string; txDigest: string };
 
 export function useCreateSuiPool() {
   const suiWallet = useSuiWallet();
@@ -113,8 +116,6 @@ export function useCreateSuiPool() {
         const coin2Object = await prepareCoin(input.token2Symbol, token2Info, amount2BigInt);
 
         // 3. Call the create_pool function
-        // The create_pool function returns the Pool object itself, but we don't capture it here directly.
-        // We'll rely on events or querying later if needed.
         txb.moveCall({
           target: `${SUI_PACKAGE_ID}::${SUI_LIQUIDITY_POOL_MODULE}::create_pool`,
           typeArguments: [token1Info.type, token2Info.type],
@@ -125,47 +126,91 @@ export function useCreateSuiPool() {
         });
 
         console.log("Requesting Sui wallet signature for create_pool...");
-        // Re-adding 'as any' to bypass potential type mismatch with wallet kit function
         const result = await suiWallet.signAndExecuteTransactionBlock({
           transactionBlock: txb as any,
         });
         console.log("Sui create_pool transaction successful:", result);
 
-        // TODO: Extract actual Pool ID from events if the contract emits it upon creation
-        // For now, returning digest. The caller might need to query based on digest.
-        return { success: true, txDigest: result.digest };
+        // --- Find the created Pool Object ID ---
+        let poolObjectId: string | undefined;
+        if (result.objectChanges) {
+             const createdPoolChange = result.objectChanges.find(
+                 (change) => change.type === 'created' &&
+                              change.objectType.startsWith(`${SUI_PACKAGE_ID}::${SUI_LIQUIDITY_POOL_MODULE}::Pool<`)
+             );
+             // Access objectId safely after checking the type
+             if (createdPoolChange && createdPoolChange.type === 'created') {
+                poolObjectId = createdPoolChange.objectId;
+             }
+        }
+         // Fallback to effects if needed
+        if (!poolObjectId && result.effects?.created?.length) {
+             const createdPoolEffect = result.effects.created.find(
+                 (eff) => typeof eff.owner === 'object' && 'Shared' in eff.owner
+             );
+             poolObjectId = createdPoolEffect?.reference?.objectId;
+         }
+
+        if (!poolObjectId) {
+            console.error("Could not find created Pool Object ID in transaction effects/changes:", result);
+            throw new Error("Failed to find created Pool Object ID after transaction.");
+        }
+        console.log("Found created Pool Object ID:", poolObjectId);
+
+        // --- 4. Call publish_create_pool_message ---
+        console.log("Publishing Wormhole message for pool creation...");
+        const txb2 = new TransactionBlock();
+        // Convert Solana Program ID to bytes using Buffer
+        const targetProgramAddressBytes = Buffer.from(
+            new PublicKey(SOLANA_DEVNET_PROGRAM_ID).toBytes()
+        );
+
+        txb2.moveCall({
+            target: `${SUI_PACKAGE_ID}::${SUI_BRIDGE_INTERFACE_MODULE}::publish_create_pool_message`,
+            typeArguments: [token1Info.type, token2Info.type],
+            arguments: [
+                txb2.object(poolObjectId), // Pass the Pool object ID
+                txb2.pure(CHAIN_ID_SOLANA, 'u16'),
+                txb2.pure(Array.from(targetProgramAddressBytes), 'vector<u8>'), // Pass target address as bytes
+            ],
+        });
+
+        const publishResult = await suiWallet.signAndExecuteTransactionBlock({
+            transactionBlock: txb2 as any,
+        });
+        console.log("Sui publish_create_pool_message transaction successful:", publishResult);
+
+        // Return the digest of the *publish* transaction for tracking
+        return { success: true, poolObjectId, txDigest: publishResult.digest };
 
       } catch (error: any) {
-        console.error("Sui pool creation failed:", error);
+        console.error("Sui pool creation or message publishing failed:", error);
         if (error?.message?.includes('User rejected the request')) {
           throw new Error('Sui transaction rejected by user.');
         }
-        // Add more specific error handling if possible (e.g., insufficient balance)
         throw new Error(`Sui pool creation failed: ${error?.message || 'Unknown error'}`);
       }
     },
     {
-      onSuccess: async (result) => { // Make onSuccess async
-        toast.success(`Sui pool creation submitted! Digest: ${result.txDigest.substring(0, 10)}...`);
-        console.log("Sui Pool Creation Submitted:", result);
+      onSuccess: async (result) => {
+        toast.success(`Sui pool created & message published! Digest: ${result.txDigest.substring(0, 10)}...`);
+        console.log("Sui Pool Creation & Message Publish Submitted:", result);
 
-        // Initiate Wormhole bridge tracking
-        toast.loading('Tracking Wormhole message...', { id: 'wormhole-track' });
+        // Initiate Wormhole bridge tracking using the *publish* transaction digest
+        toast.loading('Tracking Wormhole message...', { id: 'wormhole-track-sui' });
         const bridgeResult = await trackSuiToWormhole(suiClient, result.txDigest);
 
         if (bridgeResult.error) {
-          toast.error(`Wormhole tracking failed: ${bridgeResult.error}`, { id: 'wormhole-track' });
+          toast.error(`Wormhole tracking failed: ${bridgeResult.error}`, { id: 'wormhole-track-sui' });
           console.error("Wormhole Tracking Error:", bridgeResult.error);
         } else if (bridgeResult.wormholeMessageInfo) {
           const { sequence, emitterAddress } = bridgeResult.wormholeMessageInfo;
-          // Simplify toast message to avoid JSX issues for now
-          const explorerLink = `https://wormholescan.io/#/tx/${result.txDigest}?network=TESTNET&chain=sui`; // Keep link generation
+          const explorerLink = `https://wormholescan.io/#/tx/${result.txDigest}?network=TESTNET&chain=sui`;
           const successMsg = `Wormhole message found! Seq: ${sequence}. Emitter: ${emitterAddress.substring(0, 6)}... View on Wormholescan: ${explorerLink}`;
-          toast.success(successMsg, { id: 'wormhole-track', duration: 8000 }); // Increased duration
+          toast.success(successMsg, { id: 'wormhole-track-sui', duration: 8000 });
           console.log("Wormhole Tracking Success:", bridgeResult);
-          // TODO: Potentially store VAA bytes or pass them to another function
         } else {
-           toast.error('Wormhole tracking completed but no message info found.', { id: 'wormhole-track' });
+           toast.error('Wormhole tracking completed but no message info found.', { id: 'wormhole-track-sui' });
         }
       },
       onError: (error: Error) => {
