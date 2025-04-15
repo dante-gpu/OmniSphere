@@ -3,7 +3,7 @@ import { useWallet as useSuiWallet } from '@suiet/wallet-kit';
 import toast from 'react-hot-toast';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 import { SuiClient, getFullnodeUrl, SuiObjectChange, OwnedObjectRef } from '@mysten/sui.js/client'; // Import types
-import { parseUnits } from 'ethers';
+import { utils } from 'ethers';
 import { trackSuiToWormhole } from '../lib/wormholePoolBridge.ts';
 // Import constants - Assuming SUI_PACKAGE_ID is correctly exported now
 import { SUI_PACKAGE_ID, SOLANA_DEVNET_PROGRAM_ID } from '../lib/constants.ts';
@@ -69,8 +69,8 @@ export function useCreateSuiPool() {
         const txbCreate = new TransactionBlock();
 
         // 1. Parse amounts based on decimals
-        const amount1BigInt = parseUnits(input.token1Amount, token1Info.decimals);
-        const amount2BigInt = parseUnits(input.token2Amount, token2Info.decimals);
+        const amount1BigInt = utils.parseUnits(input.token1Amount, token1Info.decimals);
+        const amount2BigInt = utils.parseUnits(input.token2Amount, token2Info.decimals);
 
         // 2. Prepare Coin objects for transfer (More Robust Approach)
         const owner = suiWallet.account.address;
@@ -114,8 +114,8 @@ export function useCreateSuiPool() {
             }
         };
 
-        const coin1Object = await prepareCoin(txbCreate, input.token1Symbol, token1Info, amount1BigInt);
-        const coin2Object = await prepareCoin(txbCreate, input.token2Symbol, token2Info, amount2BigInt);
+        const coin1Object = await prepareCoin(txbCreate, input.token1Symbol, token1Info, amount1BigInt.toBigInt());
+        const coin2Object = await prepareCoin(txbCreate, input.token2Symbol, token2Info, amount2BigInt.toBigInt());
 
         // 3. Call the create_pool function
         txbCreate.moveCall({
@@ -208,8 +208,9 @@ export function useCreateSuiPool() {
           console.error("Wormhole Tracking Error:", bridgeResult.error);
         } else if (bridgeResult.wormholeMessageInfo) {
           const { sequence, emitterAddress } = bridgeResult.wormholeMessageInfo;
+          const emitterStr = emitterAddress.toString(); // Convert UniversalAddress to string
           const explorerLink = `https://wormholescan.io/#/tx/${result.txDigest}?network=TESTNET&chain=sui`;
-          const successMsg = `Wormhole message found! Seq: ${sequence}. Emitter: ${emitterAddress.substring(0, 6)}... View on Wormholescan: ${explorerLink}`;
+          const successMsg = `Wormhole message found! Seq: ${sequence}. Emitter: ${emitterStr.substring(0, 6)}... View on Wormholescan: ${explorerLink}`; // Use emitterStr
           toast.success(successMsg, { id: 'wormhole-track-sui', duration: 8000 });
           console.log("Wormhole Tracking Success:", bridgeResult);
         } else {

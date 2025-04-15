@@ -15,7 +15,7 @@ import {
 import { EvmPlatform } from "@wormhole-foundation/sdk-evm";
 import { SolanaPlatform } from "@wormhole-foundation/sdk-solana";
 import { SuiPlatform } from "@wormhole-foundation/sdk-sui";
-import { parseUnits } from "ethers"; // Import parseUnits from ethers
+import { utils } from "ethers"; // Import utils from ethers
 
 // Define network and chains
 const NETWORK: Network = "Testnet";
@@ -94,7 +94,7 @@ export async function bridgeTokenWithHelper(
   );
 
   // Normalize amount using the known decimals
-  const normalizedAmountBigInt = parseUnits(amount, originTokenInfo.decimals);
+  const normalizedAmountBigInt = utils.parseUnits(amount, originTokenInfo.decimals);
 
   // Create ChainAddress objects using Wormhole static methods
   const senderChainAddr: ChainAddress = Wormhole.chainAddress(sourceChain, sourceSigner.address());
@@ -104,7 +104,7 @@ export async function bridgeTokenWithHelper(
   // Pass the origin TokenId and normalized amount
   const transfer = await wh.tokenTransfer(
     originTokenId, // Use the origin TokenId
-    normalizedAmountBigInt,
+    normalizedAmountBigInt.toBigInt(), // Convert BigNumber to bigint
     senderChainAddr,
     destinationChainAddr,
     false, // Automatic delivery set to false (manual)

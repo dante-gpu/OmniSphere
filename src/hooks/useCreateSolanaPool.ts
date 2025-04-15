@@ -8,7 +8,7 @@ import { sha256 } from 'js-sha256';
 import { Buffer } from 'buffer';
 import { trackSolanaToWormhole } from '../lib/wormholePoolBridge.ts';
 import { SOLANA_DEVNET_PROGRAM_ID } from '../lib/constants.ts';
-import { parseUnits } from 'ethers'; // For parsing amounts
+import { utils } from 'ethers'; // For parsing amounts
 
 // Assuming your IDL is imported/available, replace with actual import
 import idl from '../../programs/liquidity_pool/target/idl/liquidity_pool_program.json'; // Adjust path as needed
@@ -146,8 +146,8 @@ export function useCreateSolanaPool() {
         console.log("Adding initial liquidity...");
 
         // Parse amounts
-        const amount1BigInt = parseUnits(input.token1Amount, token1Info.decimals);
-        const amount2BigInt = parseUnits(input.token2Amount, token2Info.decimals);
+        const amount1BigInt = utils.parseUnits(input.token1Amount, token1Info.decimals);
+        const amount2BigInt = utils.parseUnits(input.token2Amount, token2Info.decimals);
 
         // Get user's ATA addresses (assuming they exist, might need creation logic elsewhere)
         const userTokenAAccount = getAssociatedTokenAddressSync(tokenAMint, provider.wallet.publicKey);
@@ -213,9 +213,10 @@ export function useCreateSolanaPool() {
           console.error("Wormhole Tracking Error:", bridgeResult.error);
         } else if (bridgeResult.wormholeMessageInfo) {
           const { sequence, emitterAddress } = bridgeResult.wormholeMessageInfo;
+          const emitterStr = emitterAddress.toString(); // Convert UniversalAddress to string
           // Optional: Provide link to Wormholescan
           const explorerLink = `https://wormholescan.io/#/tx/${result.txSignature}?network=TESTNET&chain=solana`;
-          const successMsg = `Wormhole message found! Seq: ${sequence}. Emitter: ${emitterAddress.substring(0, 6)}... View on Wormholescan: ${explorerLink}`;
+          const successMsg = `Wormhole message found! Seq: ${sequence}. Emitter: ${emitterStr.substring(0, 6)}... View on Wormholescan: ${explorerLink}`; // Use emitterStr
           toast.success(successMsg, { id: 'wormhole-track-sol', duration: 8000 });
           console.log("Wormhole Tracking Success:", bridgeResult);
           // TODO: Potentially store VAA bytes or pass them to another function
