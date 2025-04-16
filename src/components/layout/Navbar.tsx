@@ -1,6 +1,7 @@
 import { useState } from 'react'; // Removed React default import
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, ChevronDown, BarChart2, ArrowRightLeft } from 'lucide-react';
+import osLogo from '../../icons/os.png'; // Import the logo
 // Removed unused Sui useWallet import
 import MultiChainWalletConnector from '../wallet/MultiChainWalletConnector'; // Import the new connector
 
@@ -18,10 +19,11 @@ const Navbar = () => {
         <div className="flex justify-between h-16">
           <div className="flex items-center">
             <Link to="/" className="flex items-center space-x-2">
-              <span className="text-2xl font-bold text-primary">OmniSphere</span>
+              {/* Replaced text with logo */}
+              <img src={osLogo} alt="OmniSphere Logo" className="h-8 w-auto" /> 
             </Link>
             <div className="hidden md:flex ml-10 space-x-8">
-              <Link 
+              <Link
                 to="/pools" 
                 className={`
                   text-neutral-500 hover:text-neutral-900 flex items-center space-x-1 

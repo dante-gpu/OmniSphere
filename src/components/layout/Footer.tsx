@@ -1,5 +1,6 @@
 import React from 'react';
 import { Github, Twitter, Disc as Discord, MessageCircle } from 'lucide-react';
+import osLogo from '../../icons/os.png'; // Import the logo
 
 const Footer = () => {
   return (
@@ -9,7 +10,8 @@ const Footer = () => {
           {/* Brand section with logo and social links */}
           <div className="md:col-span-1">
             <div className="flex items-center gap-2 mb-4">
-              <img src="/logo.svg" alt="OmniSphere Logo" className="h-8 w-8" />
+              {/* Updated logo source */}
+              <img src={osLogo} alt="OmniSphere Logo" className="h-8 w-auto" /> 
               <span className="font-bold text-xl">OmniSphere</span>
             </div>
             <p className="text-neutral-500 mb-4">
