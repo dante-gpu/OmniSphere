@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useState, useMemo, useCallback } from 'react'; // useMemo eklendi (kullanılıyor)
+import { useState, useMemo, useCallback, useEffect } from 'react'; 
 import { Link } from 'react-router-dom'; // Kullanılıyor
 import { ArrowLeft, Settings, ChevronDown, Plus } from 'lucide-react'; // Kullanılıyor
 import { useWallet as useSuiWallet } from '@suiet/wallet-kit';
@@ -123,7 +123,7 @@ const CreatePoolPage = () => {
         if (!chain) return [];
         const map = chain === 'Solana' ? SOL_TOKEN_MAP : SUI_TOKEN_MAP;
         return Object.entries(map).map(([symbol, info]) => ({
-            value: (info as any).address,
+            value: chain === 'Solana' ? (info as any).address : (info as any).type,
             label: symbol
         }));
     };
@@ -355,6 +355,22 @@ const CreatePoolPage = () => {
       </div>
     );
 
+    // ComponentDidMount yerine geçecek bir effect ekleyin
+    useEffect(() => {
+      console.log("Form Validation State:", {
+        chainA,
+        chainB,
+        selectedTokenA,
+        selectedTokenB,
+        feeBps,
+        isValid: chainA && chainB && selectedTokenA && selectedTokenB && feeBps >= 0 && chainA !== chainB
+      });
+    }, [chainA, chainB, selectedTokenA, selectedTokenB, feeBps]);
+
+    useEffect(() => {
+      console.log("Token Options A:", tokenOptionsA);
+      console.log("Token Options B:", tokenOptionsB);
+    }, [tokenOptionsA, tokenOptionsB]);
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -492,7 +508,7 @@ const CreatePoolPage = () => {
                      items={supportedChains.map(c => ({ label: c, value: c }))}
                      value={chainA}
                      onChange={(v) => { setChainA(v as SupportedChainOption); setSelectedTokenA(''); }}
-                     disabled={isLoading || chainB === 'Solana'}
+                     disabled={isLoading}
                  />
                   <label className="block text-sm font-medium text-neutral-700 mt-4">Token A</label>
                   <Dropdown
@@ -510,7 +526,7 @@ const CreatePoolPage = () => {
                      items={supportedChains.map(c => ({ label: c, value: c }))}
                      value={chainB}
                      onChange={(v) => { setChainB(v as SupportedChainOption); setSelectedTokenB(''); }}
-                     disabled={isLoading || chainA === 'Sui'}
+                     disabled={isLoading || chainA === chainB}
                  />
                   <label className="block text-sm font-medium text-neutral-700 mt-4">Token B</label>
                   <Dropdown

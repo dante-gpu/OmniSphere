@@ -62,9 +62,9 @@ export const Dropdown: React.FC<DropdownProps> = ({
       {/* Show dropdown menu only when open */}
       {isOpen && (
         <div className="absolute z-50 w-full mt-2 bg-white rounded-lg border shadow-lg py-1 animate-fade-in">
-          {items.map((item) => (
+          {items.map((item, index) => (
             <button
-              key={item.value}
+              key={`${item.value}-${index}`}
               onClick={() => {
                 onChange(item.value);
                 setIsOpen(false);
