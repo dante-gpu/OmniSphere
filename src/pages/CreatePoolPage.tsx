@@ -1,23 +1,21 @@
-import { useState, useMemo } from 'react'; // Kept named imports
-import { Link } from 'react-router-dom'; // Removed useNavigate
-import { ArrowLeft, Settings, ChevronDown, Plus } from 'lucide-react'; // Removed Info, RefreshCw
-import { useWallet } from '@suiet/wallet-kit'; // Import useWallet
+import { useState, useMemo } from 'react'; 
+import { Link } from 'react-router-dom'; 
+import { ArrowLeft, Settings, ChevronDown, Plus } from 'lucide-react'; 
+import { useWallet } from '@suiet/wallet-kit'; 
 import { Button } from '../components/ui/Button';
-import { Card, CardContent, CardHeader } from '../components/ui/Card'; // Import Card parts
+import { Card, CardContent, CardHeader } from '../components/ui/Card'; 
 import { TokenSelect } from '../components/forms/TokenSelect';
 import { TokenInput } from '../components/forms/TokenInput';
 import { Dropdown } from '../components/ui/Dropdown';
-// Import the new chain-specific hooks
+// Import the chain-specific hooks
 import { useCreateSuiPool } from '../hooks/useCreateSuiPool';
 import { useCreateSolanaPool } from '../hooks/useCreateSolanaPool';
-import { Alert } from '../components/ui/Alert'; // Import Alert
-import toast from 'react-hot-toast'; // Re-add toast import for Solana
-import { usePools, Token as PoolToken } from '../context/PoolContext'; // Removed Pool import
-import { parseUnits } from 'ethers/lib/utils'; // Correct import path for ethers v5 utils, removed unused formatUnits
-import { SUI_TOKEN_MAP } from '../lib/constants'; // Import the centralized token map
-import { useCreatePool } from '../hooks/useCreatePool';
-import { CrossChainPoolConfig, PoolCreationReceipt, SupportedChain } from '../types/wormhole';
-import { WormholeTransactionVerifier } from '../components/WormholeTransactionVerifier';
+import { Alert } from '../components/ui/Alert'; 
+import toast from 'react-hot-toast'; 
+import { usePools, Token as PoolToken, NewPoolInput } from '../context/PoolContext'; // Import NewPoolInput type
+import { parseUnits } from 'ethers/lib/utils'; 
+import { SUI_TOKEN_MAP } from '../lib/constants'; 
+// Removed unused imports: useCreatePool, CrossChainPoolConfig, PoolCreationReceipt, SupportedChain, WormholeTransactionVerifier
 
 // Import all icons
 import suiIcon from '../icons/sui.webp';
@@ -33,7 +31,7 @@ import aptIcon from '../icons/apt.png';
 import rayIcon from '../icons/ray.png';
 import srmIcon from '../icons/srm.png';
 import orcaIcon from '../icons/orca.png';
-const placeholderIcon = '/placeholder-icon.png'; // Keep placeholder
+const placeholderIcon = '/placeholder-icon.png'; 
 
 // Define types needed for the form
 type ChainOption = 'sui' | 'solana';
@@ -63,7 +61,6 @@ const MOCK_TOKENS: { [key: string]: Token } = {
 };
 
 const CreatePoolPage = () => {
-  // Removed: const navigate = useNavigate();
   const [selectedChain, setSelectedChain] = useState<ChainOption>('sui');
   const [token1, setToken1] = useState<Token | null>(null);
   const [token2, setToken2] = useState<Token | null>(null);
@@ -72,28 +69,24 @@ const CreatePoolPage = () => {
   const [slippageTolerance, setSlippageTolerance] = useState('0.5');
   const [showSettings, setShowSettings] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [isSuiCreating, setIsSuiCreating] = useState(false); // Add state for Sui loading
-  const { addPool } = usePools(); // Get addPool function from context
-  const wallet = useWallet(); // Get wallet context
-  const { createPool: createCrossChainPool } = useCreatePool();
-  const [receipt, setReceipt] = useState<PoolCreationReceipt | null>(null);
+  const [isSuiCreating, setIsSuiCreating] = useState(false); 
+  const { addPool } = usePools(); 
+  const wallet = useWallet(); 
+  // Removed unused state/hooks: useCreatePool, receipt, setReceipt
 
   // Conditionally use the correct hook based on the selected chain
-  const { createPool: createSuiPool } = useCreateSuiPool(); // Destructure the createPool function
-  const createSolanaPoolMutation = useCreateSolanaPool(); // Keep Solana hook as is for now
+  const { createPool: createSuiPool } = useCreateSuiPool(); 
+  const createSolanaPoolMutation = useCreateSolanaPool(); 
 
   // Determine the active mutation *state* (isLoading) based on the selected chain
   const isSolanaLoading = createSolanaPoolMutation.isLoading;
-  // Use the new isSuiCreating state for Sui loading
   const isLoading = selectedChain === 'sui' ? isSuiCreating : isSolanaLoading;
 
-
   // Define available tokens based on selected chain
-  // For Sui, filter based on keys in SUI_TOKEN_MAP to ensure we have info
   const availableTokens: Token[] = useMemo(() => {
     const symbols = selectedChain === 'sui'
-      ? ['SUI', 'USDC', 'USDT', 'WETH', 'BTC', 'APT', 'WMATIC', 'AVAX', 'BONK'] // Example Sui tokens
-      : ['SOL', 'USDC', 'USDT', 'RAY', 'SRM', 'BTC', 'ETH', 'BONK', 'ORCA']; // Example Solana tokens
+      ? ['SUI', 'USDC', 'USDT', 'WETH', 'BTC', 'APT', 'WMATIC', 'AVAX', 'BONK'] 
+      : ['SOL', 'USDC', 'USDT', 'RAY', 'SRM', 'BTC', 'ETH', 'BONK', 'ORCA']; 
     return symbols.map(symbol => MOCK_TOKENS[symbol]).filter(Boolean);
   }, [selectedChain]);
 
@@ -112,20 +105,10 @@ const CreatePoolPage = () => {
     return null;
   }, [token1, token2, token1Amount, token2Amount]);
 
-  const handleSubmit = async (config: CrossChainPoolConfig) => {
-    try {
-      const result = await createCrossChainPool(config);
-      if (result.success) {
-        setReceipt(result.receipt);
-        addPool(result.receipt); // Context'e yeni havuzu ekle
-      }
-    } catch (error) {
-      console.error('Cross-chain pool creation failed:', error);
-    }
-  };
+  // Removed unused handleSubmit function
 
-  const handleCreatePoolSubmit = async () => { // Make async
-    setFormError(null); // Clear previous errors
+  const handleCreatePoolSubmit = async () => { 
+    setFormError(null); 
 
     // Basic form validation
     if (!token1 || !token2) {
@@ -153,7 +136,6 @@ const CreatePoolPage = () => {
             return;
         }
 
-        // Use the imported SUI_TOKEN_MAP
         const token1Info = SUI_TOKEN_MAP[token1.symbol];
         const token2Info = SUI_TOKEN_MAP[token2.symbol];
 
@@ -162,69 +144,63 @@ const CreatePoolPage = () => {
             return;
         }
 
-        setIsSuiCreating(true); // Start loading for Sui
-        setFormError(null); // Clear previous errors before trying
+        setIsSuiCreating(true); 
+        setFormError(null); 
 
         try {
-            // Convert amounts to BigNumber then to bigint based on decimals
             const amount1BN = parseUnits(token1Amount, token1Info.decimals);
             const amount2BN = parseUnits(token2Amount, token2Info.decimals);
-            const amount1BigInt = amount1BN.toBigInt(); // Convert to bigint
-            const amount2BigInt = amount2BN.toBigInt(); // Convert to bigint
+            const amount1BigInt = amount1BN.toBigInt(); 
+            const amount2BigInt = amount2BN.toBigInt(); 
 
             console.log(`Creating Sui Pool: ${token1.symbol}/${token2.symbol}`);
-            // Use the 'type' field from SUI_TOKEN_MAP for the address
             console.log(`  Token A: ${token1Info.type}, Amount: ${amount1BigInt.toString()}`);
             console.log(`  Token B: ${token2Info.type}, Amount: ${amount2BigInt.toString()}`);
 
-            // Call the specific create function from the hook, passing the 'type' as address
             await createSuiPool({
-                wallet: wallet, // Pass the wallet context
-                tokenAAddress: token1Info.type, // Use the full CoinType string
-                tokenBAddress: token2Info.type, // Use the full CoinType string
+                wallet: wallet, 
+                tokenAAddress: token1Info.type, 
+                tokenBAddress: token2Info.type, 
                 initialLiquidityA: amount1BigInt,
                 initialLiquidityB: amount2BigInt,
             });
 
-            // If createSuiPool succeeds (doesn't throw), add to context
-            // Note: createSuiPool handles its own success toast
-            addPool({
-               name: `${token1.symbol}-${token2.symbol}`, // Use symbols for name
+            // If createSuiPool succeeds, add to context
+            // Ensure the object matches the NewPoolInput type from PoolContext
+            const newPoolData: NewPoolInput = {
+               name: `${token1.symbol}-${token2.symbol}`, 
                chain: 'sui',
-               token1: token1.symbol as PoolToken, // Keep using symbols for context
+               token1: token1.symbol as PoolToken, 
                token2: token2.symbol as PoolToken,
-               fee: '0.3%', // Assuming a default fee display
-               token1Amount: token1Amount, // Store original string amount for display?
+               fee: '0.3%', // Example fee display string
+               token1Amount: token1Amount, 
                token2Amount: token2Amount,
-               volume24h: '$0', // Placeholder
-               apr: '0.0%', // Placeholder
-               rewards: [], // Placeholder
-            });
+               volume24h: '$0', // Ensure volume24h is a string
+               apr: '0.0%', // Ensure apr is a string (if needed)
+               rewards: [], 
+            };
+            addPool(newPoolData);
 
-            // Reset form on success
             setToken1(null);
             setToken2(null);
             setToken1Amount('');
             setToken2Amount('');
             setFormError(null);
-            // navigate('/pools'); // Optional navigation
 
         } catch (error: any) {
-            // Error handled and toasted within createSuiPool, but set form error too
             console.error("Error during Sui pool creation submission:", error);
-            // Use a more specific error message if available from the hook's error
             const displayError = error?.message?.includes('Invalid struct type')
                 ? 'Invalid token address configuration. Please check token details.'
                 : error?.message || 'Unknown error';
             setFormError(`Sui Pool Creation Failed: ${displayError}`);
         } finally {
-            setIsSuiCreating(false); // Stop loading for Sui regardless of outcome
+            setIsSuiCreating(false); 
         }
 
     } else { // selectedChain === 'solana'
         // --- Solana Specific Logic (using react-query mutation) ---
-        setFormError(null); // Clear previous errors before trying
-        const feeBasisPoints = 30; // Example fee
+        setFormError(null); 
+        const feeBasisPoints = 30; 
         const dataToSubmit = {
             token1Symbol: token1.symbol,
             token2Symbol: token2.symbol,
@@ -235,25 +211,27 @@ const CreatePoolPage = () => {
 
         console.log('Submitting Solana Create Pool Data:', dataToSubmit);
 
-        // Use react-hot-toast for Solana mutation as it follows react-query pattern
         toast.promise(
            createSolanaPoolMutation.mutateAsync(dataToSubmit),
            {
              loading: `Initiating Solana pool creation...`,
              success: (result: any) => {
                if (result?.success && token1 && token2) {
-                 addPool({
+                 // Ensure the object matches the NewPoolInput type from PoolContext
+                 const newPoolData: NewPoolInput = {
                    name: `${token1.symbol}-${token2.symbol}`,
                    chain: 'solana',
                    token1: token1.symbol as PoolToken,
                    token2: token2.symbol as PoolToken,
-                   fee: `${(feeBasisPoints / 100).toFixed(2)}%`,
+                   fee: `${(feeBasisPoints / 100).toFixed(2)}%`, // Example fee display string
                    token1Amount: token1Amount,
                    token2Amount: token2Amount,
-                   volume24h: '$0',
-                   apr: '0.0%',
+                   volume24h: '$0', // Ensure volume24h is a string
+                   apr: '0.0%', // Ensure apr is a string (if needed)
                    rewards: []
-                 });
+                 };
+                 addPool(newPoolData);
+
                  setToken1(null);
                  setToken2(null);
                  setToken1Amount('');
@@ -261,9 +239,16 @@ const CreatePoolPage = () => {
                  setFormError(null);
                  return 'Solana Pool created successfully!';
                }
-               return 'Solana Pool creation simulation complete.';
+               // Handle cases where mutation resolves but indicates failure internally
+               console.warn('Solana pool creation mutation resolved but might not be fully successful:', result);
+               setFormError(result?.message || 'Solana pool creation simulation complete, but state update failed.');
+               return result?.message || 'Solana pool creation simulation complete.'; // Return message from result if available
              },
-             error: (err: any) => `Solana Pool creation failed: ${err?.message || 'Unknown error'}`,
+             error: (err: any) => {
+                const errMsg = err?.message || 'Unknown error';
+                setFormError(`Solana Pool creation failed: ${errMsg}`); // Set form error on failure
+                return `Solana Pool creation failed: ${errMsg}`;
+             },
            }
         );
     }
@@ -313,7 +298,7 @@ const CreatePoolPage = () => {
 
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl"> {/* Increased max-width */}
+    <div className="container mx-auto px-4 py-8 max-w-4xl"> 
       <Link to="/pools" className="flex items-center gap-2 text-neutral-600 hover:text-primary mb-6 transition-colors">
         <ArrowLeft size={20} />
         Back to Pools
@@ -321,7 +306,7 @@ const CreatePoolPage = () => {
 
       <h1 className="text-3xl font-bold mb-8 text-center md:text-left">Create New Liquidity Pool</h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8"> {/* Two-column layout */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8"> 
 
         {/* Left Column: Inputs */}
         <div className="space-y-6">
@@ -341,9 +326,9 @@ const CreatePoolPage = () => {
                     { label: 'Solana', value: 'solana' },
                   ]}
                   value={selectedChain}
-                  onChange={(value: string) => { // Added type string to value
+                  onChange={(value: string) => { 
                     setSelectedChain(value as ChainOption);
-                    setToken1(null); // Reset tokens on chain change
+                    setToken1(null); 
                     setToken2(null);
                     setToken1Amount('');
                     setToken2Amount('');
@@ -391,7 +376,7 @@ const CreatePoolPage = () => {
                 value={token1Amount}
                 onChange={setToken1Amount}
                 symbol={token1?.symbol}
-                balance="-" // Placeholder, fetch real balance later
+                balance="-" 
                 tokenIcon={token1?.icon ?? placeholderIcon}
                 disabled={!token1}
               />
@@ -403,7 +388,7 @@ const CreatePoolPage = () => {
                 value={token2Amount}
                 onChange={setToken2Amount}
                 symbol={token2?.symbol}
-                balance="-" // Placeholder, fetch real balance later
+                balance="-" 
                 tokenIcon={token2?.icon ?? placeholderIcon}
                 disabled={!token2}
               />
@@ -413,7 +398,7 @@ const CreatePoolPage = () => {
 
         {/* Right Column: Overview & Settings */}
         <div className="space-y-6">
-          <Card className="p-6 shadow-sm sticky top-20"> {/* Sticky card */}
+          <Card className="p-6 shadow-sm sticky top-20"> 
             <CardHeader className="p-0 mb-4">
               <h2 className="text-xl font-semibold">Pool Overview</h2>
             </CardHeader>
@@ -450,15 +435,15 @@ const CreatePoolPage = () => {
               </div>
 
               {formError && (
-                <Alert type="error" message={formError} /> // Removed className
+                <Alert type="error" message={formError} /> 
               )}
 
               <Button
                 variant="primary"
                 className="w-full mt-4"
-                onClick={handleCreatePoolSubmit}
-                isLoading={isLoading} // Use combined loading state
-                disabled={isLoading || !token1 || !token2 || !token1Amount || !token2Amount || parseFloat(token1Amount) <= 0 || parseFloat(token2Amount) <= 0 || (selectedChain === 'sui' && !wallet.connected)} // Add wallet check for Sui
+                onClick={handleCreatePoolSubmit} // This is the active handler
+                isLoading={isLoading} 
+                disabled={isLoading || !token1 || !token2 || !token1Amount || !token2Amount || parseFloat(token1Amount) <= 0 || parseFloat(token2Amount) <= 0 || (selectedChain === 'sui' && !wallet.connected)} 
               >
                 {isLoading ? 'Creating Pool...' : 'Create Pool'}
               </Button>
@@ -470,35 +455,12 @@ const CreatePoolPage = () => {
              type="info"
              title="Pool Creation Tips"
              message="The initial ratio of tokens you deposit determines the starting price. Ensure you have sufficient balance for both tokens and transaction fees."
-             // Removed icon prop, Alert should handle default icon based on type
           />
         </div>
       </div>
 
-      {receipt && (
-        <div className="mt-8">
-          <h3 className="text-xl font-bold mb-4">Transaction Status</h3>
-          <WormholeTransactionVerifier messages={receipt.wormholeMessages} />
-          
-          <div className="mt-4">
-            <p>Pool ID: {receipt.poolId}</p>
-            <p>Transactions:</p>
-            <ul>
-              {receipt.txIds.map((txid) => (
-                <li key={txid}>
-                  <a 
-                    href={`https://explorer.solana.com/tx/${txid}`} 
-                    target="_blank"
-                    className="text-blue-500 hover:underline"
-                  >
-                    {txid.slice(0, 8)}...{txid.slice(-8)}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
+      {/* Removed the receipt rendering section as handleSubmit and receipt state are removed */}
+      {/* {receipt && ( ... )} */}
     </div>
   );
 };
