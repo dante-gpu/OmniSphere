@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'; 
+import { useState, useMemo, useCallback } from 'react'; 
 import { Link } from 'react-router-dom'; 
 import { ArrowLeft, Settings, ChevronDown, Plus } from 'lucide-react'; 
 import { useWallet } from '@suiet/wallet-kit'; 
@@ -296,173 +296,376 @@ const CreatePoolPage = () => {
     </div>
   );
 
-
+  // Multichain havuz oluşturma komponenti ekleyin
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl"> 
-      <Link to="/pools" className="flex items-center gap-2 text-neutral-600 hover:text-primary mb-6 transition-colors">
-        <ArrowLeft size={20} />
-        Back to Pools
-      </Link>
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-6">Create Pool</h1>
+      
+      {/* Mevcut single-chain havuz oluşturma arayüzü */}
+      <div className="mb-10">
+        <h2 className="text-xl font-semibold mb-4">Create Single-Chain Pool</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8"> 
+          <div className="space-y-6">
+            <Card className="p-6 shadow-sm">
+              <CardHeader className="p-0 mb-4">
+                <h2 className="text-xl font-semibold">Select Tokens & Chain</h2>
+              </CardHeader>
+              <CardContent className="p-0 space-y-4">
+                {/* Chain Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">
+                    Chain
+                  </label>
+                  <Dropdown
+                    items={[
+                      { label: 'Sui', value: 'sui' },
+                      { label: 'Solana', value: 'solana' },
+                    ]}
+                    value={selectedChain}
+                    onChange={(value: string) => { 
+                      setSelectedChain(value as ChainOption);
+                      setToken1(null); 
+                      setToken2(null);
+                      setToken1Amount('');
+                      setToken2Amount('');
+                    }}
+                    className="w-full"
+                  />
+                </div>
 
-      <h1 className="text-3xl font-bold mb-8 text-center md:text-left">Create New Liquidity Pool</h1>
+                {/* Token 1 Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">
+                    Token 1
+                  </label>
+                  <TokenSelect
+                    tokens={availableTokens.filter(t => t.symbol !== token2?.symbol)}
+                    value={token1 ?? { symbol: 'Select', name: 'Select Token 1', icon: placeholderIcon }}
+                    onChange={setToken1}
+                    disabled={!selectedChain}
+                  />
+                </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8"> 
+                {/* Token 2 Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">
+                    Token 2
+                  </label>
+                  <TokenSelect
+                    tokens={availableTokens.filter(t => t.symbol !== token1?.symbol)}
+                    value={token2 ?? { symbol: 'Select', name: 'Select Token 2', icon: placeholderIcon }}
+                    onChange={setToken2}
+                    disabled={!selectedChain}
+                  />
+                </div>
+              </CardContent>
+            </Card>
 
-        {/* Left Column: Inputs */}
-        <div className="space-y-6">
-          <Card className="p-6 shadow-sm">
-            <CardHeader className="p-0 mb-4">
-              <h2 className="text-xl font-semibold">Select Tokens & Chain</h2>
-            </CardHeader>
-            <CardContent className="p-0 space-y-4">
-              {/* Chain Selection */}
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">
-                  Chain
-                </label>
-                <Dropdown
-                  items={[
-                    { label: 'Sui', value: 'sui' },
-                    { label: 'Solana', value: 'solana' },
-                  ]}
-                  value={selectedChain}
-                  onChange={(value: string) => { 
-                    setSelectedChain(value as ChainOption);
-                    setToken1(null); 
-                    setToken2(null);
-                    setToken1Amount('');
-                    setToken2Amount('');
-                  }}
-                  className="w-full"
+            <Card className="p-6 shadow-sm">
+              <CardHeader className="p-0 mb-4">
+                <h2 className="text-xl font-semibold">Set Initial Liquidity</h2>
+                <p className="text-sm text-neutral-500">Enter the amounts for each token.</p>
+              </CardHeader>
+              <CardContent className="p-0 space-y-4">
+                <TokenInput
+                  label={token1 ? `${token1.symbol} Amount` : 'Token 1 Amount'}
+                  value={token1Amount}
+                  onChange={setToken1Amount}
+                  symbol={token1?.symbol}
+                  balance="-" 
+                  tokenIcon={token1?.icon ?? placeholderIcon}
+                  disabled={!token1}
                 />
-              </div>
-
-              {/* Token 1 Selection */}
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">
-                  Token 1
-                </label>
-                <TokenSelect
-                  tokens={availableTokens.filter(t => t.symbol !== token2?.symbol)}
-                  value={token1 ?? { symbol: 'Select', name: 'Select Token 1', icon: placeholderIcon }}
-                  onChange={setToken1}
-                  disabled={!selectedChain}
+                <div className="flex justify-center my-2">
+                   <Plus size={20} className="text-neutral-400" />
+                </div>
+                <TokenInput
+                  label={token2 ? `${token2.symbol} Amount` : 'Token 2 Amount'}
+                  value={token2Amount}
+                  onChange={setToken2Amount}
+                  symbol={token2?.symbol}
+                  balance="-" 
+                  tokenIcon={token2?.icon ?? placeholderIcon}
+                  disabled={!token2}
                 />
-              </div>
+              </CardContent>
+            </Card>
+          </div>
 
-              {/* Token 2 Selection */}
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">
-                  Token 2
-                </label>
-                <TokenSelect
-                  tokens={availableTokens.filter(t => t.symbol !== token1?.symbol)}
-                  value={token2 ?? { symbol: 'Select', name: 'Select Token 2', icon: placeholderIcon }}
-                  onChange={setToken2}
-                  disabled={!selectedChain}
-                />
-              </div>
-            </CardContent>
-          </Card>
+          {/* Right Column: Overview & Settings */}
+          <div className="space-y-6">
+            <Card className="p-6 shadow-sm sticky top-20"> 
+              <CardHeader className="p-0 mb-4">
+                <h2 className="text-xl font-semibold">Pool Overview</h2>
+              </CardHeader>
+              <CardContent className="p-0 space-y-3">
+                {priceRatio ? (
+                  <>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-neutral-600">Initial Price</span>
+                      <span className="font-medium text-right">{priceRatio.t1PerT2}<br/>{priceRatio.t2PerT1}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-neutral-600">Your Pool Share</span>
+                      <span className="font-medium">~0.00%</span> {/* Placeholder */}
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-sm text-neutral-500 text-center py-4">
+                    Enter amounts to see the initial price ratio.
+                  </p>
+                )}
 
-          <Card className="p-6 shadow-sm">
-            <CardHeader className="p-0 mb-4">
-              <h2 className="text-xl font-semibold">Set Initial Liquidity</h2>
-              <p className="text-sm text-neutral-500">Enter the amounts for each token.</p>
-            </CardHeader>
-            <CardContent className="p-0 space-y-4">
-              <TokenInput
-                label={token1 ? `${token1.symbol} Amount` : 'Token 1 Amount'}
-                value={token1Amount}
-                onChange={setToken1Amount}
-                symbol={token1?.symbol}
-                balance="-" 
-                tokenIcon={token1?.icon ?? placeholderIcon}
-                disabled={!token1}
-              />
-              <div className="flex justify-center my-2">
-                 <Plus size={20} className="text-neutral-400" />
-              </div>
-              <TokenInput
-                label={token2 ? `${token2.symbol} Amount` : 'Token 2 Amount'}
-                value={token2Amount}
-                onChange={setToken2Amount}
-                symbol={token2?.symbol}
-                balance="-" 
-                tokenIcon={token2?.icon ?? placeholderIcon}
-                disabled={!token2}
-              />
-            </CardContent>
-          </Card>
-        </div>
+                <div className="pt-4 border-t border-neutral-100">
+                  <button
+                    onClick={() => setShowSettings(!showSettings)}
+                    className="flex items-center justify-between w-full text-neutral-600 hover:text-neutral-900 transition-colors text-sm font-medium"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Settings size={16} />
+                      Transaction Settings
+                    </span>
+                    <ChevronDown size={16} className={`transition-transform ${showSettings ? 'rotate-180' : ''}`} />
+                  </button>
+                  {showSettings && renderSettings()}
+                </div>
 
-        {/* Right Column: Overview & Settings */}
-        <div className="space-y-6">
-          <Card className="p-6 shadow-sm sticky top-20"> 
-            <CardHeader className="p-0 mb-4">
-              <h2 className="text-xl font-semibold">Pool Overview</h2>
-            </CardHeader>
-            <CardContent className="p-0 space-y-3">
-              {priceRatio ? (
-                <>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-neutral-600">Initial Price</span>
-                    <span className="font-medium text-right">{priceRatio.t1PerT2}<br/>{priceRatio.t2PerT1}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-neutral-600">Your Pool Share</span>
-                    <span className="font-medium">~0.00%</span> {/* Placeholder */}
-                  </div>
-                </>
-              ) : (
-                <p className="text-sm text-neutral-500 text-center py-4">
-                  Enter amounts to see the initial price ratio.
-                </p>
-              )}
+                {formError && (
+                  <Alert type="error" message={formError} /> 
+                )}
 
-              <div className="pt-4 border-t border-neutral-100">
-                <button
-                  onClick={() => setShowSettings(!showSettings)}
-                  className="flex items-center justify-between w-full text-neutral-600 hover:text-neutral-900 transition-colors text-sm font-medium"
+                <Button
+                  variant="primary"
+                  className="w-full mt-4"
+                  onClick={handleCreatePoolSubmit} // This is the active handler
+                  isLoading={isLoading} 
+                  disabled={isLoading || !token1 || !token2 || !token1Amount || !token2Amount || parseFloat(token1Amount) <= 0 || parseFloat(token2Amount) <= 0 || (selectedChain === 'sui' && !wallet.connected)} 
                 >
-                  <span className="flex items-center gap-2">
-                    <Settings size={16} />
-                    Transaction Settings
-                  </span>
-                  <ChevronDown size={16} className={`transition-transform ${showSettings ? 'rotate-180' : ''}`} />
-                </button>
-                {showSettings && renderSettings()}
-              </div>
+                  {isLoading ? 'Creating Pool...' : 'Create Pool'}
+                </Button>
+              </CardContent>
+            </Card>
 
-              {formError && (
-                <Alert type="error" message={formError} /> 
-              )}
-
-              <Button
-                variant="primary"
-                className="w-full mt-4"
-                onClick={handleCreatePoolSubmit} // This is the active handler
-                isLoading={isLoading} 
-                disabled={isLoading || !token1 || !token2 || !token1Amount || !token2Amount || parseFloat(token1Amount) <= 0 || parseFloat(token2Amount) <= 0 || (selectedChain === 'sui' && !wallet.connected)} 
-              >
-                {isLoading ? 'Creating Pool...' : 'Create Pool'}
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Info Box */}
-          <Alert
-             type="info"
-             title="Pool Creation Tips"
-             message="The initial ratio of tokens you deposit determines the starting price. Ensure you have sufficient balance for both tokens and transaction fees."
-          />
+            {/* Info Box */}
+            <Alert
+               type="info"
+               title="Pool Creation Tips"
+               message="The initial ratio of tokens you deposit determines the starting price. Ensure you have sufficient balance for both tokens and transaction fees."
+            />
+          </div>
         </div>
       </div>
-
-      {/* Removed the receipt rendering section as handleSubmit and receipt state are removed */}
-      {/* {receipt && ( ... )} */}
+      
+      {/* Yeni multichain havuz oluşturma arayüzü */}
+      <div>
+        <h2 className="text-xl font-semibold mb-4">Create Multi-Chain Pool</h2>
+        <MultiChainPoolCreation />
+      </div>
     </div>
   );
 };
+
+// Yeni multichain havuz komponenti
+function MultiChainPoolCreation() {
+  // Zincir ve token seçimleri için state
+  const [chainA, setChainA] = useState('Solana');
+  const [chainB, setChainB] = useState('Sui');
+  const [tokenA, setTokenA] = useState('');
+  const [tokenB, setTokenB] = useState('');
+  const [feeBps, setFeeBps] = useState(30); // %0.3
+  const [isCreating, setIsCreating] = useState(false);
+  const [result, setResult] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+  
+  const solanaWallet = useWallet();
+  const suiWallet = useWallet();
+  const { connection } = useConnection();
+  
+  // Token seçenekleri (gerçek implementasyonda API'den veya configden gelebilir)
+  const tokenOptions = {
+    'Solana': [
+      { value: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', label: 'USDC' },
+      { value: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', label: 'USDT' },
+    ],
+    'Sui': [
+      { value: '0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29::usdc::USDC', label: 'USDC' },
+      { value: '0x06d8af9e6afd27262db436f0d37b304a041f710c3ea1fa4c3a9bab36b3569ad3::coin::COIN', label: 'USDT' },
+    ]
+  };
+  
+  // Form state geçerliliğini kontrol et
+  const isValidForm = chainA && chainB && tokenA && tokenB && feeBps > 0 && chainA !== chainB;
+  
+  const handleCreateMultiChainPool = useCallback(async () => {
+    try {
+      setIsCreating(true);
+      setError(null);
+      
+      // 1. Cüzdan bağlantısını kontrol edin
+      if (chainA === 'Solana' && !solanaWallet.connected) {
+        throw new Error("Please connect your Solana wallet");
+      }
+      if (chainB === 'Solana' && !solanaWallet.connected) {
+        throw new Error("Please connect your Solana wallet");
+      }
+      if (chainA === 'Sui' && !suiWallet.connected) {
+        throw new Error("Please connect your Sui wallet");
+      }
+      if (chainB === 'Sui' && !suiWallet.connected) {
+        throw new Error("Please connect your Sui wallet");
+      }
+      
+      // 2. Token seçimlerini kontrol edin
+      if (!tokenA || !tokenB) {
+        throw new Error("Please select both tokens");
+      }
+      
+      // 3. Signer adaptörlerini oluşturun
+      const signers: Record<string, any> = {};
+      
+      if (solanaWallet.connected && (chainA === 'Solana' || chainB === 'Solana')) {
+        signers['Solana'] = new SolanaSignerAdapter(solanaWallet, connection);
+      }
+      
+      if (suiWallet.connected && (chainA === 'Sui' || chainB === 'Sui')) {
+        signers['Sui'] = new SuiSignerAdapter({
+          account: suiWallet.account!,
+          signAndExecuteTransactionBlock: suiWallet.signAndExecuteTransactionBlock! as any
+        });
+      }
+      
+      // 4. CrossChainPoolConfig objesi oluşturun
+      const config = {
+        chainA,
+        chainB,
+        tokenA: {
+          chain: chainA,
+          address: tokenA
+        },
+        tokenB: {
+          chain: chainB,
+          address: tokenB
+        },
+        feeBps,
+        poolType: 'volatile' // veya 'stable' parametreyle alınabilir
+      };
+      
+      // 5. createCrossChainPool fonksiyonunu çağırın
+      const wormhole = new Wormhole('Testnet', [SolanaPlatform, SuiPlatform]);
+      const receipt = await createCrossChainPool(config, signers);
+      
+      // 6. Sonucu gösterin
+      setResult(receipt);
+      console.log("Cross-chain pool created:", receipt);
+      
+    } catch (error: any) {
+      console.error("Failed to create cross-chain pool:", error);
+      setError(error.message || "An unknown error occurred");
+    } finally {
+      setIsCreating(false);
+    }
+  }, [chainA, chainB, tokenA, tokenB, feeBps, solanaWallet, suiWallet, connection]);
+  
+  return (
+    <Card className="p-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div>
+          <FormGroup label="Chain A">
+            <Select 
+              value={chainA}
+              onChange={e => {
+                setChainA(e.target.value as string);
+                setTokenA(''); // Chain değiştiğinde token sıfırla
+              }}
+              options={[
+                { value: 'Solana', label: 'Solana' },
+                { value: 'Sui', label: 'Sui' },
+              ]}
+              disabled={isCreating}
+            />
+          </FormGroup>
+          
+          <FormGroup label="Token A" className="mt-4">
+            <Select 
+              value={tokenA}
+              onChange={e => setTokenA(e.target.value as string)}
+              options={tokenOptions[chainA as keyof typeof tokenOptions] || []}
+              disabled={isCreating || !chainA}
+              placeholder="Select Token A"
+            />
+          </FormGroup>
+        </div>
+        
+        <div>
+          <FormGroup label="Chain B">
+            <Select 
+              value={chainB}
+              onChange={e => {
+                setChainB(e.target.value as string);
+                setTokenB(''); // Chain değiştiğinde token sıfırla
+              }}
+              options={[
+                { value: 'Solana', label: 'Solana' },
+                { value: 'Sui', label: 'Sui' },
+              ]}
+              disabled={isCreating || chainA === ''}
+              placeholder="Select Chain B"
+            />
+          </FormGroup>
+          
+          <FormGroup label="Token B" className="mt-4">
+            <Select 
+              value={tokenB}
+              onChange={e => setTokenB(e.target.value as string)}
+              options={tokenOptions[chainB as keyof typeof tokenOptions] || []}
+              disabled={isCreating || !chainB || chainA === chainB}
+              placeholder="Select Token B"
+            />
+          </FormGroup>
+        </div>
+      </div>
+      
+      <FormGroup label="Fee (basis points)">
+        <Input 
+          type="number"
+          value={feeBps}
+          onChange={e => setFeeBps(parseInt(e.target.value))}
+          min={1}
+          max={1000}
+          disabled={isCreating}
+        />
+        <small className="text-neutral-500">30 bps = 0.3%</small>
+      </FormGroup>
+      
+      {error && (
+        <Alert variant="error" className="my-4">
+          {error}
+        </Alert>
+      )}
+      
+      <Button 
+        onClick={handleCreateMultiChainPool}
+        disabled={isCreating || !isValidForm}
+        loading={isCreating}
+        className="w-full mt-6"
+      >
+        Create Cross-Chain Pool
+      </Button>
+      
+      {result && (
+        <div className="mt-6 p-4 bg-green-50 rounded-lg">
+          <h3 className="font-semibold text-green-900">Pool Created Successfully!</h3>
+          <div className="mt-2 text-sm">
+            <div><strong>Chain A Pool:</strong> {result.chainAReceipt?.poolAddress}</div>
+            <div><strong>Chain A Transaction:</strong> {result.chainAReceipt?.txid}</div>
+            <div className="mt-2"><strong>Chain B Pool:</strong> {result.chainBReceipt?.poolAddress}</div>
+            <div><strong>Chain B Transaction:</strong> {result.chainBReceipt?.txid}</div>
+            <div className="mt-2"><strong>Status:</strong> {result.linkingStarted ? "Pool linking in progress" : "Pools created"}</div>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
 
 export default CreatePoolPage;
