@@ -1,50 +1,39 @@
-
 module omnisphere_sui::bridge_interface {
 
-    use sui::object::{Self, ID, UID}; // Import Self for object functions
+    // Imports... (mevcutları koruyun)
+    use sui::object::{Self, ID, UID};
     use sui::tx_context::{Self, TxContext};
     use sui::event;
-    use std::vector; // Import vector
+    use std::vector;
 
-    // Import from our other modules
     use omnisphere_sui::liquidity_pool::{Self, Pool};
-    use omnisphere_sui::types::{Self, BridgeOperation};
+    // use omnisphere_sui::types::{Self, BridgeOperation}; // Artık bu modülde kullanılmıyor gibi
     use omnisphere_sui::events;
 
+
     // --- Constants ---
-    // Placeholder Wormhole Chain IDs (refer to Wormhole documentation for actual IDs)
-    const SOLANA_CHAIN_ID: u16 = 1;
-    const SUI_CHAIN_ID: u16 = 21; // Example, check official docs
+    // const SOLANA_CHAIN_ID: u16 = 1;
+    // const SUI_CHAIN_ID: u16 = 21; // Bu sabitler artık doğrudan liquidity_pool içinde kullanılabilir
 
     // --- Public Functions ---
 
-    /// Simulates publishing a message to Wormhole to create a pool mirror on the target chain.
-    /// In a real implementation, this would call the Wormhole Core Bridge `publish_message` function.
     public fun publish_create_pool_message<CoinTypeA, CoinTypeB>(
         pool: &Pool<CoinTypeA, CoinTypeB>,
-        target_chain_id: u16, // e.g., SOLANA_CHAIN_ID
-        target_program_address: vector<u8>, // Address of the OmniSphere program on the target chain
+        target_chain_id: u16,
+        target_program_address: vector<u8>,
         ctx: &mut TxContext
     ) {
-        // TODO: In real implementation, interact with Wormhole Core Bridge package
-        // let sequence = wormhole::publish_message(... payload ...);
+        // --- Simulation Only ---
+        let simulated_sequence = (tx_context::epoch_timestamp_ms(ctx) % 10000u64);
+        let payload = vector::empty<u8>();
+        // let pool_id = liquidity_pool::get_pool_id(pool); // Getter kullan
 
-        // --- Simulation ---
-        // For now, just emit an event simulating the message publication.
-        // The sequence number would normally come from the Wormhole contract.
-        let simulated_sequence = (tx_context::epoch_timestamp_ms(ctx) % 10000u64); // Use u64 literal for modulo, remove 'as'
-
-        // Define the payload (what data needs to be sent to the target chain)
-        // This needs to be defined based on what the Solana program expects.
-        // Example: Pool ID, Token A Type, Token B Type
-        let payload = vector::empty<u8>(); // Use vector::empty()
-        // vector::push_back(&mut payload, object::id_to_bytes(&liquidity_pool::get_pool_id(pool))); // Example payload data using the getter
-
+        // Note: The operation_type '0' (CreatePoolMirror) is hardcoded here.
         events::emit_bridge_message_published(
-            liquidity_pool::get_pool_id(pool), // Use the getter function from the liquidity_pool module
+            liquidity_pool::get_pool_id(pool), // Getter kullan
             target_chain_id,
             target_program_address,
-            0u8, // Pass the u8 code directly for CreatePoolMirror
+            0u8, // CreatePoolMirror operation code (example)
             payload,
             simulated_sequence,
             ctx
@@ -52,5 +41,5 @@ module omnisphere_sui::bridge_interface {
         // --- End Simulation ---
     }
 
-    // Add functions for other bridge operations (add/remove liquidity cross-chain) later.
+    // TODO: Add functions for other bridge operations (e.g., handling incoming messages) here later.
 }
