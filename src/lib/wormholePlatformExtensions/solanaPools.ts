@@ -10,17 +10,15 @@ import {
   import {
     Liquidity,
     // Market, // Kullanılmıyor
-    LiquidityPoolKeysV4, // Kullanılıyor (tip olarak)
     TxVersion, // Kullanılıyor
     buildTransaction, // Kullanılıyor
-    InnerTransaction, // Kullanılıyor (tip olarak)
     InstructionType, // Kullanılıyor
     LOOKUP_TABLE_CACHE, // Kullanılıyor
     // TOKEN_PROGRAM_ID, // Kullanılmıyor
     // Percent, // Kullanılmıyor
-    MAINNET_PROGRAM_ID, // Kullanılıyor
     DEVNET_PROGRAM_ID // Kullanılıyor
   } from '@raydium-io/raydium-sdk';
+  import { BN } from '@project-serum/anchor'; // BN'i sadece anchor'dan import ediyoruz
  // import { Wallet } from '@project-serum/anchor'; // Anchor Wallet gereksiz
 
 // Raydium için Wallet arayüzü
@@ -80,27 +78,27 @@ interface RaydiumWallet {
       // makeCreatePoolV4InstructionV2Simple kullan (dönüş türü önemli!)
       const createPoolOutput = await Liquidity.makeCreatePoolV4InstructionV2Simple({
             connection,
-            // Düzeltme: marketId -> marketInfo
+            programId: new PublicKey('9rpQHSyFVM1dkkHFQ2TtTzPEYnaDLcAbvbtcs1BYJpLa'), // Directly use the Devnet Raydium Liquidity program ID
             marketInfo: {
-                marketId: marketId,
+                marketId: marketId, 
                 programId: marketProgramId
             },
-            baseMintInfo: { mint: mintA, decimals: tokenADecimals }, // baseMintInfo kullan
-            quoteMintInfo: { mint: mintB, decimals: tokenBDecimals }, // quoteMintInfo kullan
+            baseMintInfo: { mint: mintA, decimals: tokenADecimals },
+            quoteMintInfo: { mint: mintB, decimals: tokenBDecimals },
             associatedOnly: false,
-            checkCreateMarket: false,
+            checkCreateATAOwner: false, // "checkCreateMarket" yerine "checkCreateATAOwner" kullanın
             makeTxVersion: TxVersion.V0,
             ownerInfo: {
-                 feePayer: wallet.publicKey,
-                 wallet: wallet.publicKey,
-                 tokenAccounts: [],
-                 useSOLBalance: true,
+                feePayer: wallet.publicKey,
+                wallet: wallet.publicKey,
+                tokenAccounts: [],
+                useSOLBalance: true,
             },
-            // computeBudgetConfig: undefined,
-            // feeDestinationId: undefined, // Gerekirse Raydium fee adresi
-            // initialAmountA: new BN(0), // BN cinsinden 0
-            // initialAmountB: new BN(0),
-            // startTime: new BN(0), // BN cinsinden 0
+            baseAmount: new BN(0), // BN sınıfını import etmeniz gerekiyor
+            quoteAmount: new BN(0),
+            startTime: new BN(0),
+            feeDestinationId: wallet.publicKey, // Fee destination olarak kendi cüzdanınızı kullanabilirsiniz
+            lookupTableCache: LOOKUP_TABLE_CACHE
       });
 
       // Düzeltme: Dönüş değerinden innerTransactions ve address al

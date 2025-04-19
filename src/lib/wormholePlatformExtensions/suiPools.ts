@@ -92,10 +92,17 @@ import { SuiTransactionBlockResponse } from '@mysten/sui.js/client';
     });
     console.log("Transaction executed:", response);
 
-    // 7. Wormhole message/sequence bilgisini al (SDK Statik Metodu ile)
-    // Düzeltme: parseSequenceFromSuiTxReceipt yerine parseMessagesFromSuiTxReceipt kullanılır
-    const messages: SDKMessageId[] = await Wormhole.parseMessagesFromSuiTxReceipt(response);
-
+    // Create an instance first to get the chain context
+    const wormhole = new Wormhole(network, [SuiPlatform]);
+    const suiContext = wormhole.getChain("Sui");
+    
+    // Then use parseMessageFromTx with the proper context
+    const messages: SDKMessageId[] = await Wormhole.parseMessageFromTx(
+        suiContext,
+        response.digest,
+        60000
+    );
+    
     if (!messages || messages.length === 0) {
         throw new Error("Could not parse Wormhole messages from transaction effects");
     }

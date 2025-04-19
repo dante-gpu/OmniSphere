@@ -1,6 +1,6 @@
 import { PublicKey, AccountMeta, TransactionInstruction, SystemProgram, SYSVAR_RENT_PUBKEY, Keypair } from '@solana/web3.js';
 // SDK importlarını ana paketten yapalım
-import { Chain, toChainId, isChain, UniversalAddress, Network, CONFIG } from '@wormhole-foundation/sdk';
+import { Chain, toChainId, isChain, isChainId, UniversalAddress, Network, CONFIG } from '@wormhole-foundation/sdk';
 // getWormholeDerivedAccounts için doğru import yolu (veya CONFIG kullanımı)
 // SDK v0.3.x+ için platform context'inden alınır: chainContext.getWormholeDerivedAccounts()
 // Manuel PDA türetme daha stabil olabilir:
@@ -103,9 +103,8 @@ export function getWormholeChainId(chain: Chain | string): number {
        throw new Error(`Unknown or invalid chain name: ${chain}`);
     }
     const chainId = toChainId(chain);
-    // Düzeltme: chainId === 0 kontrolü geçerli
-    if (chainId === 0) { // ChainId 0 (Unset) geçersizdir
-      throw new Error(`Chain ID 0 (Unset) is not valid for Wormhole: ${chain}`);
+    if (!isChainId(chainId)) {
+        throw new Error(`Invalid Chain ID for Wormhole: ${chain}`);
     }
     return chainId;
 }

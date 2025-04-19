@@ -87,11 +87,26 @@ import { CONFIG } from '@wormhole-foundation/sdk';
     });
     console.log("Transaction executed:", response);
 
-    // 7. Wormhole sequence'ı al (SDK ile)
-    // Wormhole instance oluşturmamız gerekiyor network bilgisiyle
-    const wh = new Wormhole(network, [SuiPlatform]); // Platform eklemek gerekebilir
-    const sequence = await wh.parseSequenceFromSuiTxReceipt(response); // instance metodunu kullan
-
+    // Create a Wormhole instance with SuiPlatform
+    const wh = new Wormhole(network, [SuiPlatform]);
+    
+    // Get the Sui chain context
+    const suiContext = wh.getChain("Sui");
+    
+    // Get messages using parseMessageFromTx
+    const messages = await Wormhole.parseMessageFromTx(
+        suiContext, 
+        response.digest,
+        60000
+    );
+    
+    if (!messages || messages.length === 0) {
+        throw new Error("Could not parse Wormhole messages from transaction effects");
+    }
+    
+    // Extract sequence from the first message
+    const sequence = messages[0].sequence;
+    
     if (sequence === null) {
         throw new Error("Could not parse Wormhole sequence from transaction effects");
     }
