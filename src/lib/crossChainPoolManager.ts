@@ -500,16 +500,12 @@ import {
     // Using simpler augmentation signature that works for current needs
     interface ChainContext<N extends Network, C extends Chain> { 
   
-      createPool: C extends "Solana" 
-        ? (params: SolanaPoolCreationParams, signer: any) => Promise<PoolCreationResult> 
-        : C extends "Sui" 
-        ? (params: SuiPoolCreationParams, signer: any) => Promise<PoolCreationResult> 
+      createPool: C extends SupportedChain 
+        ? (params: any, signer: any) => Promise<any>
         : undefined; 
   
-      linkPools: C extends "Solana" 
-        ? (localPoolId: string, remotePoolId: string, remoteChain: SupportedChain, signer: any) => Promise<LinkPoolsResult>
-        : C extends "Sui"
-        ? (localPoolId: string, remotePoolId: string, remoteChain: SupportedChain, signer: any) => Promise<LinkPoolsResult>
+      linkPools: C extends SupportedChain
+        ? (poolA: string, poolB: string, remoteChain: SupportedChain, signer: any) => Promise<any>
         : undefined; 
     }
   }

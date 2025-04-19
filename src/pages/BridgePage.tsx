@@ -1,12 +1,12 @@
 import * as React from 'react'; // Use * as import
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback } from 'react'; // Removed unused useMemo
 import {
   ArrowRightLeft,
   Clock,
   Shield,
   Zap,
   ChevronDown,
-  RefreshCw
+  // RefreshCw // Removed unused import
 } from 'lucide-react';
 import * as dayjs from 'dayjs'; // Use * as import
 import * as relativeTime from 'dayjs/plugin/relativeTime'; // Use namespace import for plugin
@@ -17,68 +17,68 @@ import {
   Wormhole,
   Chain,
   Network,
-  // chainToChainId, // Removed unused import
-  ChainContext,
+  // ChainContext, // Removed unused import
   TokenId,
-  // chainToPlatform, // Removed unused import
-  Signer, // Import Signer type
+  // Signer, // Removed unused import
+  UniversalAddress, // Keep for SDK type definitions if needed implicitly
 } from '@wormhole-foundation/sdk';
-// import { EvmPlatform } from "@wormhole-foundation/sdk-evm"; // Not needed if only bridging Sui/Solana
-import { SolanaPlatform } from "@wormhole-foundation/sdk-solana";
-import { SuiPlatform } from "@wormhole-foundation/sdk-sui";
-// import { bridgeTokenWithHelper } from '../lib/wormholeService'; // Replace with initiateWLLTransfer
-import { initiateWLLTransfer, WLLTransferRequest, getWormholeMessageId } from '../lib/wormholePoolBridge'; // Import WLL function
-import { SolanaSignerAdapter, SuiSignerAdapter } from '../lib/wormholeSignerAdapters';
-import { PublicKey } from '@solana/web3.js'; // Solana adres doğrulaması için
-import { Button } from '../components/ui/Button'; // Assuming named export
+// import { EvmPlatform } from "@wormhole-foundation/sdk-evm"; // Not needed
+// import { SolanaPlatform } from "@wormhole-foundation/sdk-solana"; // Platforms loaded dynamically or in bridge function
+// import { SuiPlatform } from "@wormhole-foundation/sdk-sui"; // Platforms loaded dynamically or in bridge function
 import {
-  amount as sdkAmount,
-  // TokenId, // Remove duplicate import
-  SignAndSendSigner,
-  // Network, // Remove duplicate import
-  TransactionId, // Add missing import
-  WormholeMessageId, // Add missing import
-} from '@wormhole-foundation/sdk'; // Import amount helper and types
-import { utils as ethersUtils } from 'ethers'; // For parsing amounts consistently
-// import { Input } from '../components/ui/Input'; // Using standard input
-// import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/Select'; // Using standard select
-import { LoadingSpinner } from '../components/ui/LoadingSpinner'; // Use named import
+  initiateWLLTransfer,
+  WLLTransferRequest,
+  getWormholeMessageId,
+  WormholeMessageId as LocalWormholeMessageId // Import local MessageId type
+} from '../lib/wormholePoolBridge'; // Import WLL function and local message id type
+import { SolanaSignerAdapter, SuiSignerAdapter } from '../lib/wormholeSignerAdapters';
+import { PublicKey } from '@solana/web3.js';
+import { Button } from '../components/ui/Button';
+import {
+  // amount as sdkAmount, // Removed unused import
+  // SignAndSendSigner, // Removed unused import
+  TransactionId, // Keep - used conceptually for tx ids even if they are strings now
+  WormholeMessageId, // Keep SDK's type for reference, but use local one for state
+} from '@wormhole-foundation/sdk';
+import { utils as ethersUtils } from 'ethers';
+import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 
 // Import the new icons
 import suiIcon from '../icons/sui.webp';
 import solIcon from '../icons/sol.svg';
 import usdcIcon from '../icons/usdc.png';
 import usdtIcon from '../icons/tether.png';
-// Note: Other icons like btc, eth, avax, bonk are not used on this page currently
 
-dayjs.extend(relativeTime); // Extend dayjs with the plugin
+dayjs.extend(relativeTime);
 
 // Use Wormhole SDK Chain type
-type SupportedChainOption = Extract<Chain, "Solana" | "Sui">; // Use SDK Chain type
+type SupportedChainOption = Extract<Chain, "Solana" | "Sui">;
 const supportedChains: SupportedChainOption[] = ["Solana", "Sui"];
 
 // Define Token Symbols
 type TokenSymbolOption = "USDC" | "USDT";
 const supportedTokens: TokenSymbolOption[] = ["USDC", "USDT"];
 
-// Define Testnet Token Addresses (REPLACE WITH ACTUAL ADDRESSES)
+// Define Testnet Token Addresses (REPLACE WITH ACTUAL ADDRESSES if needed)
+// Note: Sui USDT address is a placeholder as it's not officially on testnet
 const TESTNET_TOKEN_MAP: Record<SupportedChainOption, Record<TokenSymbolOption, { address: string; decimals: number }>> = {
   Solana: {
-    USDC: { address: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", decimals: 6 }, // Devnet USDC
+    USDC: { address: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", decimals: 6 }, // Using Mainnet USDC for broader testing/devnet compatibility
     USDT: { address: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", decimals: 6 }, // Devnet USDT
   },
   Sui: {
-    USDC: { address: "0xYOUR_SUI_TESTNET_USDC_PACKAGE::coin::COIN", decimals: 6 }, // Replace with actual Sui Testnet USDC address/type
-    USDT: { address: "0xYOUR_SUI_TESTNET_USDT_PACKAGE::coin::COIN", decimals: 6 }, // Replace with actual Sui Testnet USDT address/type
+    USDC: {
+      address: "0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29::usdc::USDC", // Example Testnet USDC - VERIFY ADDRESS
+      decimals: 6
+    },
+    USDT: {
+      // Placeholder address as USDT isn't officially on Sui Testnet
+      address: "0x06d8af9e6afd27262db436f0d37b304a041f710c3ea1fa4c3a9bab36b3569ad3::coin::COIN", // Example placeholder COIN type - VERIFY/REPLACE
+      decimals: 6 // Assuming 6 decimals for placeholder
+    },
   }
 };
 
-
-// Removed unused interface
-// interface BridgeTransaction { ... }
-
-// Removed unused helper function
-// const getPlatform = (chain: Chain) => { ... }
 
 const BridgePage = () => {
   const [fromChain, setFromChain] = useState<SupportedChainOption>('Solana');
@@ -87,29 +87,21 @@ const BridgePage = () => {
   const [amount, setAmount] = useState('');
   const [recipientAddress, setRecipientAddress] = useState('');
   const [isBridging, setIsBridging] = useState(false);
-  const [bridgeResult, setBridgeResult] = useState<{ message?: string; error?: string; txIds?: TransactionId[]; messageId?: WormholeMessageId } | null>(null); // More specific result type
+  // Update state type to use string[] for txIds and local WormholeMessageId
+  const [bridgeResult, setBridgeResult] = useState<{ message?: string; error?: string; txIds?: string[]; messageId?: LocalWormholeMessageId } | null>(null);
 
-  const suiWallet = useSuiWallet(); // Rely on type inference
+  const suiWallet = useSuiWallet();
   const solanaWallet = useSolanaWallet();
-  // Get connection from the correct hook
   const { connection } = useConnection();
 
-  // Removed unused mock data
-  // const transactions: BridgeTransaction[] = [ ... ];
-
-  // Removed unused fees object
-  // const fees = { ... };
-
-  // Use imported icons
   const chainIcons: Record<SupportedChainOption, string> = {
-    Sui: suiIcon, // Use imported icon
-    Solana: solIcon // Use imported icon
+    Sui: suiIcon,
+    Solana: solIcon
   };
 
-  // Use imported icons
   const tokenIcons: Record<TokenSymbolOption, string> = {
-    USDC: usdcIcon, // Use imported icon
-    USDT: usdtIcon // Use imported icon
+    USDC: usdcIcon,
+    USDT: usdtIcon
   };
 
   const handleSwapChains = () => {
@@ -118,29 +110,23 @@ const BridgePage = () => {
     setToChain(currentFrom);
   };
 
-  // Removed unused function
-  // const getStatusColor = (status: string) => { ... };
-
   const handleBridge = useCallback(async () => {
-    setBridgeResult(null); // Clear previous result
+    setBridgeResult(null);
 
     // Address validation section
-    // Validate recipient address based on destination chain
     let isValidAddress = false;
     if (toChain === 'Solana') {
       try {
-        // Try to create a PublicKey and check if it's on the ed25519 curve
         const publicKey = new PublicKey(recipientAddress);
         isValidAddress = PublicKey.isOnCurve(publicKey.toBytes());
       } catch (error) {
-        isValidAddress = false; // PublicKey creation error means invalid address
+        isValidAddress = false;
       }
       if (!isValidAddress) {
         toast.error("Invalid Solana recipient address.");
         return;
       }
     } else if (toChain === 'Sui') {
-      // Simple regex: starts with '0x' followed by 64 hex characters
       const suiAddressRegex = /^0x[a-fA-F0-9]{64}$/;
       isValidAddress = suiAddressRegex.test(recipientAddress);
       if (!isValidAddress) {
@@ -176,27 +162,39 @@ const BridgePage = () => {
     const toastId = toast.loading(`Bridging ${amount} ${selectedToken} from ${fromChain} to ${toChain}...`);
 
     try {
-      // Initialize Wormhole SDK
-      const wh = new Wormhole(network, [SolanaPlatform, SuiPlatform]);
+      // Initialize Wormhole SDK - Platforms needed by initiateWLLTransfer are loaded there implicitly or passed
+      // We don't need to explicitly pass SolanaPlatform/SuiPlatform here if initiateWLLTransfer handles it
+      const wh = new Wormhole(network, []); // Pass empty array, platforms loaded as needed by SDK/bridge function
 
-      // Assign RPC connection to the Solana context if needed by the SDK internally
-      // This might vary depending on SDK version and how it discovers RPCs
-      // Set RPC connection for Solana if needed
-      if (fromChain === 'Solana' && connection) {
-        const solanaChain = wh.getChain('Solana');
-        // @ts-ignore - We need to set this even if the type doesn't expose it
-        solanaChain.rpc = connection;
-      }
-      
+      // Note: Setting RPC on chain context might not be needed if SDK handles it via signer or discovery
+      // if (fromChain === 'Solana' && connection) {
+      //   const solanaChain = wh.getChain('Solana');
+      //   if (solanaChain) solanaChain.rpc = connection; // Check if context exists
+      // }
+
       // Get the appropriate signer based on the chain
-      const chain = wh.getChain(fromChain);
-      // @ts-ignore - TypeScript doesn't recognize getSigner but it exists at runtime
-      const sourceSigner = await chain.getSigner();
+      let sourceSigner;
+      if (fromChain === 'Solana') {
+        if (typeof solanaWallet.signTransaction === 'function' && typeof solanaWallet.sendTransaction === 'function') {
+          sourceSigner = new SolanaSignerAdapter(solanaWallet);
+        } else {
+          throw new Error('Solana wallet does not support required signing methods');
+        }
+      } else if (fromChain === 'Sui') {
+        sourceSigner = new SuiSignerAdapter(suiWallet);
+      } else {
+        throw new Error(`Unsupported chain or wallet configuration: ${fromChain}`);
+      }
 
-      // Double-check if signer address matches connected wallet address
+      // Double-check signer address
       const connectedAddress = fromChain === 'Solana' ? solanaWallet.publicKey?.toBase58() : suiWallet.account?.address;
-      if (!connectedAddress || sourceSigner.address() !== connectedAddress) {
-          throw new Error(`SDK Signer address (${sourceSigner.address()}) does not match connected wallet (${connectedAddress}). Ensure the correct wallet is active.`);
+      const signerAddress = sourceSigner.address(); // Get address from adapter
+
+      if (!connectedAddress || signerAddress !== connectedAddress) {
+          // Attempt to normalize or compare differently if needed (e.g., case sensitivity)
+          console.warn(`Signer address (${signerAddress}) vs Connected address (${connectedAddress}) mismatch detected.`);
+          // Decide whether to throw error or proceed cautiously
+          throw new Error(`SDK Signer address does not match connected wallet. Ensure the correct wallet is active.`);
       }
 
 
@@ -213,7 +211,7 @@ const BridgePage = () => {
       const transferRequest: WLLTransferRequest = {
         fromChain: fromChain,
         toChain: toChain,
-        fromAddress: sourceSigner.address(), // Get address from signer
+        fromAddress: signerAddress, // Use address confirmed from signer
         toAddress: recipientAddress,
         token: tokenId,
         amount: amountInAtomicUnits,
@@ -228,30 +226,36 @@ const BridgePage = () => {
 
       // Handle success
       const messageId = result.attestation ? getWormholeMessageId(result.attestation) : undefined;
-      const successMessage = `Bridge initiated! TxIDs: ${result.originTxIds?.map(tx => tx.txid.substring(0, 6)).join(', ')}... ${messageId ? `Msg Seq: ${messageId.sequence}` : ''}`;
-      setBridgeResult({ message: successMessage, txIds: result.originTxIds, messageId });
+      // Ensure result.originTxIds is treated as string[]
+      const txIdSnippet = result.originTxIds && result.originTxIds.length > 0
+        ? result.originTxIds[0].substring(0, 6) // Access string directly
+        : 'N/A';
+      const successMessage = `Bridge initiated! TxID: ${txIdSnippet}... ${messageId ? `Msg Seq: ${messageId.sequence}` : ''}`;
+
+      // Update state with correct types
+      setBridgeResult({
+          message: successMessage,
+          txIds: result.originTxIds, // Already string[]
+          messageId: messageId        // Already LocalWormholeMessageId | undefined
+      });
       toast.success(successMessage, { id: toastId, duration: 8000 });
 
-      // Optionally clear form
       setAmount('');
-      // Keep recipient address for potential subsequent transfers? Or clear it?
-      // setRecipientAddress('');
 
     } catch (error) {
       console.error("Bridging failed:", error);
       const errorMessage = error instanceof Error ? error.message : String(error);
-      // Add specific check for user rejection
       if (errorMessage.includes('Transaction rejected') || errorMessage.includes('User rejected')) {
-          setBridgeResult({ error: 'Transaction rejected by user.' });
+          setBridgeResult({ error: 'Transaction rejected by user.', txIds: [] }); // Include empty txIds
           toast.error('Transaction rejected by user.', { id: toastId });
       } else {
-          setBridgeResult({ error: errorMessage });
+          setBridgeResult({ error: errorMessage, txIds: [] }); // Include empty txIds
           toast.error(`Bridging failed: ${errorMessage}`, { id: toastId });
       }
     } finally {
       setIsBridging(false);
     }
-  }, [fromChain, toChain, selectedToken, amount, recipientAddress, solanaWallet, suiWallet]);
+  }, [fromChain, toChain, selectedToken, amount, recipientAddress, solanaWallet, suiWallet, connection]); // Added connection dependency
 
 
   return (
@@ -266,24 +270,23 @@ const BridgePage = () => {
             {/* From Chain */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-neutral-600">From</label>
-              {/* Using standard select as placeholder */}
               <div className="relative">
                 <select
                   value={fromChain}
                   onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFromChain(e.target.value as SupportedChainOption)}
-                  className="input pl-12 appearance-none w-full" // Added w-full
+                  className="input pl-12 appearance-none w-full"
                   disabled={isBridging}
                 >
                   {supportedChains.map(chain => (
                     <option key={chain} value={chain} disabled={chain === toChain}>
-                      {chain === 'Sui' ? 'Sui Network' : chain}
+                      {chain} {/* Display chain name directly */}
                     </option>
                   ))}
                 </select>
                  <img
                     src={chainIcons[fromChain]}
                     alt={fromChain}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 pointer-events-none" // Added pointer-events-none
+                    className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 pointer-events-none"
                   />
                 <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" size={20} />
               </div>
@@ -293,10 +296,10 @@ const BridgePage = () => {
             <div className="flex justify-center items-center pb-2 md:pb-0 md:relative">
               <Button
                 variant="outline"
-                // Removed invalid size="icon" prop
                 onClick={handleSwapChains}
-                className="md:absolute md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 z-10 p-2" // Added padding for icon button look
+                className="md:absolute md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 z-10 p-2"
                 disabled={isBridging}
+                aria-label="Swap chains" // Added aria-label
               >
                 <ArrowRightLeft className="text-primary" size={20} />
               </Button>
@@ -306,24 +309,23 @@ const BridgePage = () => {
             {/* To Chain */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-neutral-600">To</label>
-              {/* Using standard select as placeholder */}
                <div className="relative">
                 <select
                   value={toChain}
                   onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setToChain(e.target.value as SupportedChainOption)}
-                  className="input pl-12 appearance-none w-full" // Added w-full
+                  className="input pl-12 appearance-none w-full"
                   disabled={isBridging}
                 >
                    {supportedChains.map(chain => (
                     <option key={chain} value={chain} disabled={chain === fromChain}>
-                       {chain === 'Sui' ? 'Sui Network' : chain}
+                       {chain} {/* Display chain name directly */}
                     </option>
                   ))}
                 </select>
                  <img
                     src={chainIcons[toChain]}
                     alt={toChain}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 pointer-events-none" // Added pointer-events-none
+                    className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 pointer-events-none"
                   />
                 <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" size={20} />
               </div>
@@ -334,12 +336,11 @@ const BridgePage = () => {
           <div className="space-y-4 mb-6">
             <div className="space-y-2">
               <label className="block text-sm font-medium text-neutral-600">Token</label>
-              {/* Using standard select as placeholder */}
                <div className="relative">
                  <select
                   value={selectedToken}
                   onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedToken(e.target.value as TokenSymbolOption)}
-                  className="input pl-12 appearance-none w-full" // Added w-full
+                  className="input pl-12 appearance-none w-full"
                   disabled={isBridging}
                 >
                    {supportedTokens.map(token => (
@@ -351,55 +352,52 @@ const BridgePage = () => {
                  <img
                     src={tokenIcons[selectedToken]}
                     alt={selectedToken}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 pointer-events-none" // Added pointer-events-none
+                    className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 pointer-events-none"
                   />
                 <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" size={20} />
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-neutral-600">Amount</label>
+              <label htmlFor="bridgeAmount" className="block text-sm font-medium text-neutral-600">Amount</label> {/* Added htmlFor */}
               <div className="relative">
-                {/* Using standard input as placeholder */}
                 <input
+                  id="bridgeAmount" // Added id
                   type="number"
                   value={amount}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAmount(e.target.value)}
                   placeholder="0.00"
-                  className="input pr-24 w-full" // Added w-full
+                  className="input pr-24 w-full"
                   disabled={isBridging}
+                  min="0" // Added min attribute
                 />
-                {/* Add MAX button logic if needed */}
-                {/* <button className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-1 text-sm text-primary hover:bg-neutral-50 rounded-lg transition-colors">
-                  MAX
-                </button> */}
+                {/* Placeholder for MAX button logic */}
               </div>
             </div>
 
              <div className="space-y-2">
-              <label className="block text-sm font-medium text-neutral-600">Recipient Address ({toChain})</label>
-              {/* Using standard input as placeholder */}
+              <label htmlFor="recipientAddress" className="block text-sm font-medium text-neutral-600">Recipient Address ({toChain})</label> {/* Added htmlFor */}
               <input
+                id="recipientAddress" // Added id
                 type="text"
                 value={recipientAddress}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRecipientAddress(e.target.value)}
                 placeholder={`Enter ${toChain} address`}
-                className="input w-full" // Added w-full
+                className="input w-full"
                 disabled={isBridging}
               />
             </div>
           </div>
 
-          {/* Fee Breakdown (Keep placeholders or implement dynamic quoting later) */}
+          {/* Fee Breakdown */}
           <div className="bg-neutral-50 rounded-xl p-4 mb-6">
-            {/* ... fee breakdown UI ... */}
              <div className="flex justify-between text-sm text-neutral-600">
                 <span>Estimated Fees</span>
-                <span>~0.01 {fromChain === 'Sui' ? 'SUI' : 'SOL'} + Wormhole Fee</span>
+                <span>~0.01 {fromChain === 'Sui' ? 'SUI' : 'SOL'} + Relayer Fee</span> {/* Updated text */}
              </div>
              <div className="flex justify-between text-sm text-neutral-600 mt-1">
                 <span>Estimated Time</span>
-                <span>2-5 minutes</span>
+                <span>~ 1-5 minutes</span> {/* Updated text */}
              </div>
           </div>
 
@@ -417,15 +415,14 @@ const BridgePage = () => {
                 {/* Display Origin Tx IDs */}
                 {bridgeResult.txIds && bridgeResult.txIds.length > 0 && (
                   <span className="block mt-1">
-                    Origin Tx: {bridgeResult.txIds[0].txid.substring(0, 10)}...
-                    {/* Optionally add link to explorer */}
+                    {/* Correctly access the string tx id */}
+                    Origin Tx: {bridgeResult.txIds[0].substring(0, 10)}...
                   </span>
                 )}
                 {/* Display Wormhole Message ID if available */}
                 {bridgeResult.messageId && (
                    <span className="block mt-1">
-                     Wormhole Msg: Chain {bridgeResult.messageId.chain}, Seq {bridgeResult.messageId.sequence.toString()} {/* Convert bigint to string */}
-                     {/* Optionally add link to wormholescan */}
+                     Wormhole Msg: Chain {bridgeResult.messageId.chain}, Seq {bridgeResult.messageId.sequence.toString()}
                    </span>
                 )}
               </p>
@@ -434,7 +431,6 @@ const BridgePage = () => {
         </div>
 
         {/* Info Cards */}
-        {/* ... info cards UI ... */}
          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
             <div className="bg-white rounded-xl shadow-card p-6 flex items-start gap-4">
                 <Clock className="text-primary w-8 h-8 mt-1 flex-shrink-0" />
@@ -454,13 +450,12 @@ const BridgePage = () => {
                 <Zap className="text-primary w-8 h-8 mt-1 flex-shrink-0" />
                 <div>
                     <h3 className="font-semibold mb-1">Low Fees</h3>
-                    <p className="text-sm text-neutral-600">Benefit from competitive bridging fees.</p>
+                    <p className="text-sm text-neutral-600">Benefit from competitive bridging fees via relayers.</p> {/* Updated text */}
                 </div>
             </div>
         </div>
 
         {/* Transaction History */}
-        {/* ... transaction history UI ... */}
          <div className="bg-white rounded-xl shadow-card p-6 mt-8">
              <h3 className="text-xl font-bold mb-4">Bridge History</h3>
              <p className="text-neutral-500 text-center py-4">No recent bridge transactions.</p>
