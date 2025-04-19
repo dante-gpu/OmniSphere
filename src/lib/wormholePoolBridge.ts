@@ -32,7 +32,7 @@ export type { Chain };
 export interface WLLTransferResult {
   attestation?: any; // The attestation receipt
   error?: string;
-  originTxIds?: TransactionId[]; // Transaction IDs
+  originTxIds: TransactionId[]; // Transaction IDs
 }
 
 // Define a simplified structure for initiating a transfer
@@ -92,14 +92,20 @@ export async function initiateWLLTransfer(
       console.log("Attestation received:", attestReceipt);
       
       return { 
-        originTxIds, 
+        originTxIds: originTxIds.map(tx => ({ 
+          chain: request.fromChain, 
+          txid: typeof tx === 'string' ? tx : tx.toString() 
+        })),
         attestation: attestReceipt 
       };
     } catch (attestError) {
       // Still return the transaction IDs even if attestation tracking fails
       console.warn("Could not fetch attestation:", attestError);
       return { 
-        originTxIds,
+        originTxIds: originTxIds.map(tx => ({ 
+          chain: request.fromChain, 
+          txid: typeof tx === 'string' ? tx : tx.toString() 
+        })),
         error: `Transfer initiated, but failed to fetch attestation: ${attestError}`
       };
     }

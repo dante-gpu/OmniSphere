@@ -1,4 +1,3 @@
-
 import { useState, useMemo } from 'react'; // Kept named imports
 import { Link } from 'react-router-dom'; // Removed useNavigate
 import { ArrowLeft, Settings, ChevronDown, Plus } from 'lucide-react'; // Removed Info, RefreshCw
@@ -16,6 +15,9 @@ import toast from 'react-hot-toast'; // Re-add toast import for Solana
 import { usePools, Token as PoolToken } from '../context/PoolContext'; // Removed Pool import
 import { parseUnits } from 'ethers/lib/utils'; // Correct import path for ethers v5 utils, removed unused formatUnits
 import { SUI_TOKEN_MAP } from '../lib/constants'; // Import the centralized token map
+import { useCreatePool } from '../hooks/useCreatePool';
+import { CrossChainPoolConfig, PoolCreationReceipt, SupportedChain } from '../types/wormhole';
+import { WormholeTransactionVerifier } from '../components/WormholeTransactionVerifier';
 
 // Import all icons
 import suiIcon from '../icons/sui.webp';
@@ -73,6 +75,8 @@ const CreatePoolPage = () => {
   const [isSuiCreating, setIsSuiCreating] = useState(false); // Add state for Sui loading
   const { addPool } = usePools(); // Get addPool function from context
   const wallet = useWallet(); // Get wallet context
+  const { createPool: createCrossChainPool } = useCreatePool();
+  const [receipt, setReceipt] = useState<PoolCreationReceipt | null>(null);
 
   // Conditionally use the correct hook based on the selected chain
   const { createPool: createSuiPool } = useCreateSuiPool(); // Destructure the createPool function
@@ -107,6 +111,18 @@ const CreatePoolPage = () => {
     }
     return null;
   }, [token1, token2, token1Amount, token2Amount]);
+
+  const handleSubmit = async (config: CrossChainPoolConfig) => {
+    try {
+      const result = await createCrossChainPool(config);
+      if (result.success) {
+        setReceipt(result.receipt);
+        addPool(result.receipt); // Context'e yeni havuzu ekle
+      }
+    } catch (error) {
+      console.error('Cross-chain pool creation failed:', error);
+    }
+  };
 
   const handleCreatePoolSubmit = async () => { // Make async
     setFormError(null); // Clear previous errors
@@ -440,11 +456,11 @@ const CreatePoolPage = () => {
               <Button
                 variant="primary"
                 className="w-full mt-4"
-            onClick={handleCreatePoolSubmit}
-            isLoading={isLoading} // Use combined loading state
-            disabled={isLoading || !token1 || !token2 || !token1Amount || !token2Amount || parseFloat(token1Amount) <= 0 || parseFloat(token2Amount) <= 0 || (selectedChain === 'sui' && !wallet.connected)} // Add wallet check for Sui
-          >
-            {isLoading ? 'Creating Pool...' : 'Create Pool'}
+                onClick={handleCreatePoolSubmit}
+                isLoading={isLoading} // Use combined loading state
+                disabled={isLoading || !token1 || !token2 || !token1Amount || !token2Amount || parseFloat(token1Amount) <= 0 || parseFloat(token2Amount) <= 0 || (selectedChain === 'sui' && !wallet.connected)} // Add wallet check for Sui
+              >
+                {isLoading ? 'Creating Pool...' : 'Create Pool'}
               </Button>
             </CardContent>
           </Card>
@@ -458,6 +474,31 @@ const CreatePoolPage = () => {
           />
         </div>
       </div>
+
+      {receipt && (
+        <div className="mt-8">
+          <h3 className="text-xl font-bold mb-4">Transaction Status</h3>
+          <WormholeTransactionVerifier messages={receipt.wormholeMessages} />
+          
+          <div className="mt-4">
+            <p>Pool ID: {receipt.poolId}</p>
+            <p>Transactions:</p>
+            <ul>
+              {receipt.txIds.map((txid) => (
+                <li key={txid}>
+                  <a 
+                    href={`https://explorer.solana.com/tx/${txid}`} 
+                    target="_blank"
+                    className="text-blue-500 hover:underline"
+                  >
+                    {txid.slice(0, 8)}...{txid.slice(-8)}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

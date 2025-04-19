@@ -1,7 +1,9 @@
 import { Wormhole, Chain, Network } from '@wormhole-foundation/sdk';
-
+import { SolanaPlatform } from '@wormhole-foundation/sdk-solana';
+import { SuiPlatform } from '@wormhole-foundation/sdk-sui';
 import { utils } from 'ethers';
 import toast from 'react-hot-toast';
+import { CrossChainPoolConfig, PoolCreationReceipt, CURRENT_NETWORK, SupportedChain } from '../types/wormhole';
 
 interface CrossChainLiquidityParams {
   // Pool info
@@ -206,4 +208,109 @@ function bigintToBytes(value: bigint): Uint8Array {
     buffer[7 - i] = Number((value >> BigInt(i * 8)) & BigInt(0xff));
   }
   return buffer;
+}
+
+export async function createCrossChainPool(
+  config: CrossChainPoolConfig,
+  signers: {
+    [key in Chain]: any; // Chain-specific signer type
+  }
+): Promise<PoolCreationReceipt> {
+  const wh = new Wormhole(config.chainA, [SolanaPlatform, SuiPlatform]);
+  const receipts: PoolCreationReceipt[] = [];
+
+  try {
+    // 1. Her iki zincirde havuz oluştur
+    const [chainAReceipt, chainBReceipt] = await Promise.all([
+      createPoolOnChain(config.chainA, config, signers[config.chainA]),
+      createPoolOnChain(config.chainB, config, signers[config.chainB])
+    ]);
+
+    // 2. Havuzları birbirine bağla
+    const linkReceipt = await linkPools(
+      chainAReceipt.poolId,
+      chainBReceipt.poolId,
+      config,
+      signers
+    );
+
+    return {
+      poolId: `${chainAReceipt.poolId}-${chainBReceipt.poolId}`,
+      chain: config.chainA,
+      txIds: [...chainAReceipt.txIds, ...chainBReceipt.txIds],
+      wormholeMessages: [...chainAReceipt.wormholeMessages, ...chainBReceipt.wormholeMessages]
+    };
+  } catch (error) {
+    console.error('Cross-chain pool creation failed:', error);
+    throw new Error(`Failed to create cross-chain pool: ${error.message}`);
+  }
+}
+
+async function createPoolOnChain(
+  chain: SupportedChain,
+  config: CrossChainPoolConfig,
+  signer: any
+): Promise<PoolCreationReceipt> {
+  const wh = new Wormhole(CURRENT_NETWORK, [SolanaPlatform, SuiPlatform]);
+  const platform = wh.getChain(chain);
+  
+  // Platform metodlarını doğru şekilde çağır
+  const tx = await platform.createPool({
+    tokenA: config.tokenA.toString(),
+    tokenB: config.tokenB.toString(),
+    feeBps: config.feeBps,
+    poolType: config.poolType
+  }, signer);
+
+  // Transaction ID'yi doğru şekilde al
+  const txIds = [tx.txid instanceof Uint8Array ? 
+    Buffer.from(tx.txid).toString('hex') : 
+    tx.txid
+  ];
+
+  return {
+    poolId: tx.poolAddress,
+    chain,
+    txIds,
+    wormholeMessages: tx.messages.map(msg => ({
+      chain: msg.chain,
+      emitter: msg.emitter.toString(),
+      sequence: msg.sequence.toString()
+    }))
+  };
+}
+
+async function linkPools(
+  poolA: string,
+  poolB: string,
+  config: CrossChainPoolConfig,
+  signers: any
+): Promise<PoolCreationReceipt> {
+  const wh = new Wormhole(config.chainA, [SolanaPlatform, SuiPlatform]);
+  
+  // Her iki zincirde bağlantıyı kur
+  const [tx1, tx2] = await Promise.all([
+    wh.getChain(config.chainA).linkPool(poolA, poolB, signers[config.chainA]),
+    wh.getChain(config.chainB).linkPool(poolB, poolA, signers[config.chainB])
+  ]);
+
+  return {
+    poolId: `${poolA}-${poolB}`,
+    chain: config.chainA,
+    txIds: [tx1.txid, tx2.txid],
+    wormholeMessages: [
+      ...(await parseWormholeMessages(tx1.txid)),
+      ...(await parseWormholeMessages(tx2.txid))
+    ]
+  };
+}
+
+async function parseWormholeMessages(txId: string): Promise<WormholeMessageId[]> {
+  const response = await fetch(`https://api.wormholescan.io/api/v1/transactions/${txId}`);
+  const data = await response.json();
+  return data.messages.map(msg => ({
+    chain: msg.emitterChain,
+    emitter: msg.emitterAddress,
+    sequence: msg.sequence.toString()
+  }));
 } 
