@@ -13,6 +13,7 @@ interface DropdownProps {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  disabled?: boolean;
 }
 
 export const Dropdown: React.FC<DropdownProps> = ({
@@ -20,7 +21,8 @@ export const Dropdown: React.FC<DropdownProps> = ({
   value,
   onChange,
   placeholder = 'Select an option',
-  className = ''
+  className = '',
+  disabled
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -43,6 +45,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="w-full flex items-center justify-between p-3 rounded-lg border hover:border-primary transition-colors"
+        disabled={disabled}
       >
         <div className="flex items-center gap-2">
           {selectedItem?.icon}

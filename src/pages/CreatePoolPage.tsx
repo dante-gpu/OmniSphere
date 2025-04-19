@@ -12,33 +12,24 @@ import { TokenInput } from '../components/forms/TokenInput';
 import {
   Wormhole,
   Chain,
-  Network,
-  TokenId, // TokenId kullanılıyor
-  isChain, // Kullanılıyor
-  // parseTokenAddress, // Kaldırıldı - Yok
+  TokenId, 
+  isChain, 
 } from '@wormhole-foundation/sdk';
 import { SolanaPlatform } from "@wormhole-foundation/sdk-solana";
 import { SuiPlatform } from "@wormhole-foundation/sdk-sui";
-// createCrossChainPool import ediliyor
 import { createCrossChainPool } from '../lib/crossChainPoolManager';
-// CrossChainPoolConfig ve PoolCreationReceipt import ediliyor
 import { CrossChainPoolConfig, PoolCreationReceipt } from '../types/wormhole';
 import { SolanaSignerAdapter, SuiSignerAdapter } from '../lib/wormholeSignerAdapters';
 import { PublicKey } from '@solana/web3.js';
 import { Dropdown } from '../components/ui/Dropdown';
-// Single chain hook'lar hala kullanılıyor (UI'ın eski kısmı için)
+
 import { useCreateSuiPool } from '../hooks/useCreateSuiPool';
 import { useCreateSolanaPool } from '../hooks/useCreateSolanaPool';
 import toast from 'react-hot-toast';
 import { usePools, Token as PoolToken, NewPoolInput } from '../context/PoolContext';
 import { parseUnits } from 'ethers/lib/utils';
-// Token map'lerini import et
 import { SUI_TOKEN_MAP, SOL_TOKEN_MAP } from '../lib/constants';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
-// import { FormGroup } from '../components/ui/FormGroup'; // Kaldırıldı
-// import { Input } from '../components/ui/Input'; // Kaldırıldı
-// import { Select } from '../components/ui/Select'; // Kaldırıldı
-// WormholeTransactionVerifier import ediliyor (receipt için)
 import { WormholeTransactionVerifier } from '../components/WormholeTransactionVerifier';
 
 
@@ -106,6 +97,9 @@ const CreatePoolPage = () => {
     const [isLoading, setIsLoading] = useState(false); // Genel yüklenme durumu
     const [receipt, setReceipt] = useState<PoolCreationReceipt | null>(null); // Cross-chain sonucu için
 
+    // Add isSuiCreating state
+    const [isSuiCreating, setIsSuiCreating] = useState(false);
+
     // --- Hooks ---
     const { addPool } = usePools();
     const suiWallet = useSuiWallet();
@@ -129,7 +123,7 @@ const CreatePoolPage = () => {
         if (!chain) return [];
         const map = chain === 'Solana' ? SOL_TOKEN_MAP : SUI_TOKEN_MAP;
         return Object.entries(map).map(([symbol, info]) => ({
-            value: info.address, // Değer olarak adresi kullan
+            value: (info as any).address,
             label: symbol
         }));
     };

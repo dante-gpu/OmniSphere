@@ -52,3 +52,26 @@ export const SUI_TOKEN_MAP: { [symbol: string]: SuiTokenInfo } = {
   // 'WETH': { symbol: 'WETH', type: '0xcccc...::weth::WETH', decimals: 8 },
   // 'BTC': { symbol: 'BTC', type: '0xdddd...::btc::BTC', decimals: 8 },
 };
+
+// Add SOL_TOKEN_MAP
+export const SOL_TOKEN_MAP = {
+  SOL: {
+    symbol: 'SOL',
+    name: 'Solana',
+    address: 'So11111111111111111111111111111111111111112', // Native SOL token address
+    decimals: 9
+  },
+  USDC: {
+    symbol: 'USDC',
+    name: 'USD Coin',
+    address: '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU', // Solana USDC
+    decimals: 6
+  },
+  USDT: {
+    symbol: 'USDT',
+    name: 'Tether USD',
+    address: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', // Solana USDT
+    decimals: 6
+  },
+  // Add other Solana tokens
+};
