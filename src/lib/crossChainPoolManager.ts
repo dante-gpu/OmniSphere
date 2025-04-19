@@ -2,15 +2,16 @@ import {
     Wormhole, 
     Chain, 
     Network, 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ChainContext, // Keep for module augmentation, even if unused warning appears
     TokenId, 
     isChain, 
-    NativeAddress, // Keep type import if needed elsewhere, but value usage is removed
+    NativeAddress, // Keep type import if needed elsewhere
     ChainAddress, 
-    UniversalAddress // Import UniversalAddress as it's part of ChainAddress type
+    UniversalAddress 
   } from '@wormhole-foundation/sdk';
-  // Import chain constants/helpers from sdk-definitions
-  import { chainIdToName } from '@wormhole-foundation/sdk-definitions'; // Corrected import location
+  // Import CHAINS constant for mapping ChainId to Chain Name
+  import { chainIdToChain } from '@wormhole-foundation/sdk'; // Import CHAINS constant
   import { SolanaPlatform } from '@wormhole-foundation/sdk-solana';
   import { SuiPlatform } from '@wormhole-foundation/sdk-sui';
   import { utils } from 'ethers';
@@ -54,9 +55,9 @@ import {
     const {
       sourceChain,
       targetChain,
-      poolId, // Expecting native address string
+      poolId, 
       tokenSymbol,
-      sourceTokenAddress, // Expecting native address string
+      sourceTokenAddress, 
       amount,
       decimals,
       wormhole,
@@ -70,11 +71,9 @@ import {
       const amountBigInt = utils.parseUnits(amount, decimals).toBigInt();
       
       // 2. Create TokenId using SDK utility
-      // This handles creating the NativeAddress internally
       const tokenId: TokenId = Wormhole.tokenId(sourceChain, sourceTokenAddress); 
       
       // 3. Get the destination ChainAddress using SDK utility
-      // This handles creating NativeAddress or UniversalAddress internally
       const targetChainAddress: ChainAddress = Wormhole.chainAddress(targetChain, poolId);
   
       // 4. Get source ChainAddress using SDK utility
@@ -98,10 +97,10 @@ import {
       
       // 7. Create a TokenTransfer using the Wormhole SDK
       const transfer = await wormhole.tokenTransfer(
-        tokenId, // Use the TokenId created by the utility
+        tokenId, 
         amountBigInt,
-        sourceChainAddress, // Use the ChainAddress created by the utility
-        targetChainAddress, // Use the ChainAddress created by the utility
+        sourceChainAddress, 
+        targetChainAddress, 
         true, 
         payload 
       );
@@ -116,7 +115,6 @@ import {
       toast.success(`Transfer initiated! Tracking attestation...`, { id: toastId });
       
       // 9. Wait for attestation (VAA)
-      // The emitter type in the SDK's MessageId might be UniversalAddress or NativeAddress
       let fetchedMessageIds: { chain: Chain, emitter: UniversalAddress | NativeAddress<Chain>, sequence: bigint }[] | undefined;
       try {
         fetchedMessageIds = await transfer.fetchAttestation(120_000); 
@@ -134,7 +132,6 @@ import {
         const sdkMessageId = fetchedMessageIds[0];
         messageId = {
           chain: sdkMessageId.chain,
-          // Convert the emitter address object (Native or Universal) to string
           emitter: sdkMessageId.emitter.toString(), 
           sequence: sdkMessageId.sequence 
         };
@@ -177,30 +174,20 @@ import {
     const operationByte = params.operation === 'addLiquidity' ? 0 : 1;
     let poolIdBytes: Uint8Array;
     try {
-      // Assuming poolId is hex address suitable for target chain payload
       const cleanHexPoolId = params.poolId.startsWith('0x') ? params.poolId.substring(2) : params.poolId;
-      // Example check for EVM-style address (32 bytes / 64 hex) - ADJUST FOR OTHER CHAINS
       if (cleanHexPoolId.length !== 64) { 
          console.warn(`Pool ID format (${params.poolId}) might not be 32 bytes hex. Ensure it's correct for the target payload.`);
-         // Attempt to pad or handle differently if necessary, or throw error
-         // throw new Error(`Invalid Pool ID format for hex encoding: ${params.poolId}. Expected 32 bytes (64 hex chars).`);
       }
-      // Use the potentially non-standard length hex string
       poolIdBytes = hexToBytes(cleanHexPoolId); 
-      // If padding to 32 bytes is ALWAYS required:
-      // poolIdBytes = hexToBytes(cleanHexPoolId.padStart(64, '0')); 
-  
     } catch (e) {
        console.error("Failed to encode Pool ID:", e);
        throw new Error(`Cannot encode invalid Pool ID: ${params.poolId}`); 
     }
-  
-    // Adjust buffer size if poolIdBytes is not 32 bytes
-    const buffer = new Uint8Array(1 + poolIdBytes.length + 8); // 1 (op) + poolId length + 8 (amount)
+    
+    const buffer = new Uint8Array(1 + poolIdBytes.length + 8); 
     const dataView = new DataView(buffer.buffer);
     dataView.setUint8(0, operationByte);
-    buffer.set(poolIdBytes, 1); // Offset by 1 byte
-    // Set amount (big-endian) at the correct offset
+    buffer.set(poolIdBytes, 1); 
     dataView.setBigUint64(1 + poolIdBytes.length, params.tokenAmount, false); 
     console.log("Encoded Payload:", buffer); 
     return buffer;
@@ -209,8 +196,6 @@ import {
   // Helper: Convert hex string to bytes
   function hexToBytes(hex: string): Uint8Array {
     if (hex.length % 2 !== 0) {
-      // Pad with leading zero if odd length? Depends on contract expectation.
-      // hex = '0' + hex; 
       throw new Error("Hex string must have an even length");
     }
     const bytes = new Uint8Array(hex.length / 2);
@@ -231,7 +216,7 @@ import {
     config: CrossChainPoolConfig,
     signers: { [K in SupportedChain]?: any } 
   ): Promise<PoolCreationReceipt> { 
-    
+      
     const signerA = signers[config.chainA as SupportedChain]; 
     const signerB = signers[config.chainB as SupportedChain]; 
     if (!signerA || !signerB) {
@@ -292,12 +277,10 @@ import {
           throw new Error(`createPool method not implemented for chain ${chain}`);
       }
   
-      // Use Wormhole.tokenId to get the TokenId object, then potentially get the string address if needed
       const tokenA_tokenId = Wormhole.tokenId(config.tokenA.chain, config.tokenA.address.toString());
       const tokenB_tokenId = Wormhole.tokenId(config.tokenB.chain, config.tokenB.address.toString());
   
       const txResult = await platform.createPool({
-        // Pass the string representation of the token address
         tokenA: tokenA_tokenId.address.toString(), 
         tokenB: tokenB_tokenId.address.toString(), 
         feeBps: config.feeBps,
@@ -308,10 +291,9 @@ import {
         poolId: txResult.poolAddress,
         chain: chain,
         txIds: [txResult.txid],
-        // Map SDK's internal MessageId structure (returned by createPool) to local structure
         wormholeMessages: txResult.messages.map(msg => ({ 
           chain: msg.chain, 
-          emitter: msg.emitter.toString(), // Convert NativeAddress/UniversalAddress to string
+          emitter: msg.emitter.toString(), 
           sequence: msg.sequence 
         }))
       };
@@ -328,7 +310,7 @@ import {
     signers: { [K in SupportedChain]?: any } 
   ): Promise<PoolCreationReceipt> { 
     const wh = new Wormhole(CURRENT_NETWORK, [SolanaPlatform, SuiPlatform]);
-    
+      
     const chainA = config.chainA as SupportedChain;
     const chainB = config.chainB as SupportedChain;
     const chainAContext = wh.getChain(chainA);
@@ -354,12 +336,11 @@ import {
       ]);
   
       const combinedTxIds = [tx1Result.txid, tx2Result.txid];
-      // Map SDK's internal MessageId structure (returned by linkPools) to local structure
       const combinedMessages = [
         ...tx1Result.messages.map(msg => ({ chain: msg.chain, emitter: msg.emitter.toString(), sequence: msg.sequence })),
         ...tx2Result.messages.map(msg => ({ chain: msg.chain, emitter: msg.emitter.toString(), sequence: msg.sequence }))
       ];
-      
+        
       // Optional Wormholescan Parsing (kept enabled)
       let parsedMessages: WormholeMessageId[] = [];
       try {
@@ -383,6 +364,23 @@ import {
         throw error; 
     }
   }
+  
+  // Helper function to get chain name from ID using chainIdToChain utility
+  function getChainNameFromId(chainId: number): Chain | null {
+    try {
+      if (chainIdToChain.has(chainId)) {
+        const chainName = chainIdToChain.get(chainId);
+        if (chainName && isChain(chainName)) {
+          return chainName;
+        }
+      }
+      return null;
+    } catch (error) {
+      console.warn(`Could not map chain ID ${chainId} to chain name:`, error);
+      return null;
+    }
+  }
+  
   
   // Interface for the expected structure of a message from Wormholescan API (adjust as needed)
   interface WormholescanMessage {
@@ -424,14 +422,11 @@ import {
       const vaaInfo = data.vaa || data.data?.vaa;
   
       if (vaaInfo && typeof vaaInfo.sequence === 'string') { 
-          // Use chainIdToName from sdk-definitions
-          const chainName = chainIdToName(vaaInfo.emitterChain); 
-          if (!isChain(chainName)) {
-              // Handle cases where chainId might not be known to the SDK version
+          // Use helper function with chainIdToChain utility to get chain name
+          const chainName = getChainNameFromId(vaaInfo.emitterChain); 
+          if (!chainName) { // Check if mapping was successful
                console.warn(`Unknown emitter chain ID from API: ${vaaInfo.emitterChain}. Cannot map to chain name.`);
-               // Return empty or a placeholder depending on requirements
                return []; 
-               // OR: throw new Error(`Unknown emitter chain ID from API: ${vaaInfo.emitterChain}`);
           }
   
           return [{
@@ -441,8 +436,9 @@ import {
           }];
       } else if (data && Array.isArray(data.messages)) { 
           return data.messages.map((msg: WormholescanMessage) => { 
-               const chainName = chainIdToName(msg.emitterChain); // Use imported function
-               if (!isChain(chainName)) {
+               // Use helper function with chainIdToChain utility to get chain name
+               const chainName = getChainNameFromId(msg.emitterChain); 
+               if (!chainName) { // Check if mapping was successful
                    console.warn(`Unknown emitter chain ID in message: ${msg.emitterChain}`);
                    return null; 
                }
@@ -498,13 +494,11 @@ import {
   
   
   // ----- Module Augmentation for Wormhole SDK -----
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  import type { PlatformContext } from '@wormhole-foundation/sdk-definitions'; // Import PlatformContext if needed for augmentation signature
+  // Removed unused PlatformContext import type
   
   declare module '@wormhole-foundation/sdk' {
-    // Ensure augmentation signature matches SDK's ChainContext definition
-    // It might be ChainContext<N extends Network, C extends Chain, P extends PlatformContext<N, C>>
-    interface ChainContext<N extends Network, C extends Chain> { // Adjust if PlatformContext needed
+    // Using simpler augmentation signature that works for current needs
+    interface ChainContext<N extends Network, C extends Chain> { 
   
       createPool: C extends "Solana" 
         ? (params: SolanaPoolCreationParams, signer: any) => Promise<PoolCreationResult> 
