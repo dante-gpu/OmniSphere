@@ -1,19 +1,19 @@
 import { SuiPlatform } from '@wormhole-foundation/sdk-sui';
 // Network ve Chain'i ana SDK'dan import et
-import { WormholeMessageId as SDKMessageId, Chain, UniversalAddress, Network, Wormhole } from '@wormhole-foundation/sdk';
+import { WormholeMessageId as SDKMessageId, Chain, UniversalAddress, Network, Wormhole } from '@wormhole-foundation/sdk'; // Wormhole import edildi
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 // import { SuiClient } from '@mysten/sui.js/client'; // Kullanılmıyor
 // import { encoding } from '@wormhole-foundation/sdk-base'; // Kullanılmıyor
-import { getWormholeChainId /*, WORMHOLE_PROGRAM_ID */ } from './wormholeHelpers'; // WORMHOLE_PROGRAM_ID kullanılmıyor
+import { getWormholeChainId } from './wormholeHelpers'; // Helper import edildi
 import { Buffer } from 'buffer';
 import bs58 from 'bs58';
-// CONFIG import edilmeli (Wormhole State ID'si için)
+// CONFIG import edilmeli
 import { CONFIG } from '@wormhole-foundation/sdk';
 
 
 // Prototip yerine 'as any' kullan
 (SuiPlatform.prototype as any).linkPools = async function(
-  this: SuiPlatform<Network, Chain>, // Network ve Chain import edildi
+  // this: SuiPlatform<Network, Chain>, // 'this' türünü kaldırıyoruz
   localPoolId: string,
   remotePoolId: string,
   remoteChain: Chain,
@@ -21,10 +21,9 @@ import { CONFIG } from '@wormhole-foundation/sdk';
 ): Promise<{txid: string, messages: SDKMessageId[]}> { // messages döndürülüyor
   console.log(`Linking Sui pool ${localPoolId} to ${remoteChain} pool ${remotePoolId}`);
 
-  const network = this.network; // Network'ü context'ten al
-  if (!network) {
-       throw new Error("Could not determine network from SuiPlatform context.");
-  }
+  // Network'ü global veya config'den almamız lazım. wormholeHelpers'daki NETWORK sabitini kullanalım.
+  const network: Network = 'Testnet'; // VEYA 'Devnet' - helper ile aynı olmalı!
+
 
   if (!signer || !signer.account) {
       throw new Error("Sui signer or account is missing.");
@@ -58,13 +57,11 @@ import { CONFIG } from '@wormhole-foundation/sdk';
     const YOUR_LINKER_MODULE_NAME = "pool_linker"; // DEĞİŞTİR
     const YOUR_LINKER_FUNCTION_NAME = "link_and_publish"; // DEĞİŞTİR
 
-    // Wormhole Core Bridge State ve Message Fee
     const coreBridgeStateObjectId = CONFIG[network].chains.Sui?.contracts.coreBridge;
     if (!coreBridgeStateObjectId) {
         throw new Error(`Wormhole Core Bridge Object ID not found for Sui on ${network}`);
     }
-    // Mesaj ücreti (Doğru değeri Sui için belirleyin!)
-    const MESSAGE_FEE = 100000000; // 0.1 SUI MIST - ÖRNEK
+    const MESSAGE_FEE = 100000000; // 0.1 SUI MIST - ÖRNEK, DOĞRU DEĞERİ BULUN!
     const [feeCoin] = tx.splitCoins(tx.gas, [tx.pure(MESSAGE_FEE)]);
 
     tx.moveCall({
@@ -74,8 +71,8 @@ import { CONFIG } from '@wormhole-foundation/sdk';
             tx.pure(remoteChainId, 'u16'),
             tx.pure(Array.from(remotePoolIdBytes), 'vector<u8>'),
             tx.pure(Array.from(payload), 'vector<u8>'),
-            tx.object(coreBridgeStateObjectId), // Wormhole state nesnesi
-            feeCoin, // Mesaj ücreti coini
+            tx.object(coreBridgeStateObjectId),
+            feeCoin,
         ],
     });
     console.log(`Added moveCall to ${YOUR_LINKER_FUNCTION_NAME}`);
@@ -91,18 +88,17 @@ import { CONFIG } from '@wormhole-foundation/sdk';
     console.log("Transaction executed:", response);
 
     // 7. Wormhole sequence'ı al (SDK ile)
-    // Wormhole instance oluşturmaya gerek yok, platform context'i kullanılabilir
-    // VEYA: Statik metod varsa direkt kullanılabilir (versiyona bağlı)
-    // Şimdilik statik metod varsayalım:
-    const sequence = Wormhole.parseSequenceFromSuiTxReceipt(response); // Veya parseSequenceFromTx
+    // Wormhole instance oluşturmamız gerekiyor network bilgisiyle
+    const wh = new Wormhole(network, [SuiPlatform]); // Platform eklemek gerekebilir
+    const sequence = await wh.parseSequenceFromSuiTxReceipt(response); // instance metodunu kullan
 
     if (sequence === null) {
         throw new Error("Could not parse Wormhole sequence from transaction effects");
     }
     console.log("Wormhole Sequence:", sequence);
 
-    // Emitter adresi: Sizin Sui modülünüzün ID'si (veya Object ID'si) olmalı.
-    const emitterAddressHex = YOUR_LINKER_PACKAGE_ID; // Veya daha spesifik bir adres
+    // Emitter adresi: Sizin Sui modülünüzün Object ID'si olmalı.
+    const emitterAddressHex = YOUR_LINKER_PACKAGE_ID;
     console.log("Emitter Address (Hex):", emitterAddressHex.startsWith('0x') ? emitterAddressHex.substring(2) : emitterAddressHex);
 
     // 8. Mesaj bilgisini döndür

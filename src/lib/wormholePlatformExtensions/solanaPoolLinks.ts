@@ -9,15 +9,17 @@ import {
     // GetTransactionConfig // Kullanılmıyor
   } from '@solana/web3.js';
   import { SolanaPlatform } from '@wormhole-foundation/sdk-solana';
-  // Network, Chain, UniversalAddress ana SDK'dan import edilmeli
-  import { WormholeMessageId as SDKMessageId, Chain, UniversalAddress, Network, Wormhole } from '@wormhole-foundation/sdk'; // Wormhole eklendi
+  // Chain, UniversalAddress ana SDK'dan import ediliyor
+  // Network ve Wormhole ana SDK'dan import ediliyor
+  import { WormholeMessageId as SDKMessageId, Chain, UniversalAddress, Network, Wormhole } from '@wormhole-foundation/sdk';
   // import { encoding } from '@wormhole-foundation/sdk-base'; // Kullanılmıyor
   import {
       getWormholeChainId,
-      createWormholePostMessageInstruction, // Doğru isim
+      createWormholePostMessageInstruction,
       getWormholeEmitterAddress,
-      WORMHOLE_PROGRAM_ID, // Fonksiyon olarak import et
-      LIQUIDITY_POOL_PROGRAM_ID
+      WORMHOLE_PROGRAM_ID,
+      LIQUIDITY_POOL_PROGRAM_ID,
+      SOLANA_NETWORK
   } from './wormholeHelpers';
   import { Buffer } from 'buffer';
   import bs58 from 'bs58';
@@ -28,17 +30,15 @@ import {
     localPoolId: string,
     remotePoolId: string,
     remoteChain: Chain,
-    signer: any // Solana Wallet Adapter
+    signer: any // SolanaWalletAdapter (connection ve address() içermeli)
   ): Promise<{txid: string, messages: SDKMessageId[]}> {
     console.log(`Linking Solana pool ${localPoolId} to ${remoteChain} pool ${remotePoolId}`);
 
-     // Connection'ı signer'dan al
      if (!signer.connection) {
           throw new Error("Signer does not have a required 'connection' property.");
      }
      const connection: Connection = signer.connection;
-     // Network'ü global veya config'den almamız lazım. wormholeHelpers'daki NETWORK sabitini kullanalım.
-     const network: Network = 'Testnet'; // VEYA 'Devnet' - helper ile aynı olmalı!
+     const network = SOLANA_NETWORK; // Helper'dan alınan ağ sabitini kullan
 
     const payerPubkey = new PublicKey(signer.address());
 
@@ -46,8 +46,8 @@ import {
       const nonce = Math.floor(Math.random() * 100000);
       const localPoolIdPubkey = new PublicKey(localPoolId);
       const remoteChainId = getWormholeChainId(remoteChain);
-      const remoteChainIdBytes = Buffer.alloc(2);
-      remoteChainIdBytes.writeUInt16BE(remoteChainId, 0);
+      // const remoteChainIdBytes = Buffer.alloc(2); // Artık link instruction içinde kullanılmıyor gibi
+      // remoteChainIdBytes.writeUInt16BE(remoteChainId, 0);
 
       let remotePoolIdBytes: Buffer;
       if (remotePoolId.startsWith('0x')) {
@@ -79,18 +79,15 @@ import {
       });
 
       // 3.2 Wormhole mesaj instruction
-      const WORMHOLE_PROGRAM_ID_PUBKEY = new PublicKey(WORMHOLE_PROGRAM_ID(network)); // Ağ'a göre al
+      const WORMHOLE_PROGRAM_ID_PUBKEY = new PublicKey(WORMHOLE_PROGRAM_ID(network));
       const messageAccountKeypair = Keypair.generate();
-      // Emitter adresi: Eğer kendi programınız mesajı yayınlıyorsa onun PDA'sı,
-      // yoksa Wormhole'un varsayılan emitter PDA'sı olmalı.
-      // Şimdilik varsayılanı kullanalım (helper'dan alarak)
-      const emitterPda = new PublicKey(getWormholeEmitterAddress(WORMHOLE_PROGRAM_ID_PUBKEY)); // String'den PublicKey'e
+      const emitterPda = new PublicKey(getWormholeEmitterAddress(WORMHOLE_PROGRAM_ID_PUBKEY));
 
       const wormholeInstruction = createWormholePostMessageInstruction(
           payerPubkey,
           WORMHOLE_PROGRAM_ID_PUBKEY,
           messageAccountKeypair,
-          emitterPda, // Emitter PDA'sını ver
+          emitterPda,
           nonce,
           payload,
           1 // Consistency Level: Confirmed
@@ -105,10 +102,10 @@ import {
       transaction.recentBlockhash = blockhash;
       transaction.feePayer = payerPubkey;
 
-      transaction.partialSign(messageAccountKeypair); // Sadece mesaj hesabı (biz oluşturduk)
+      transaction.partialSign(messageAccountKeypair);
 
       console.log("Signing and sending transaction...");
-      const signedTx = await signer.signTransaction(transaction); // Cüzdan sadece kendi imzasını atar
+      const signedTx = await signer.signTransaction(transaction);
       const txid = await connection.sendRawTransaction(signedTx.serialize());
 
       console.log("Transaction sent with ID:", txid);
@@ -123,32 +120,33 @@ import {
       }
       console.log("Transaction confirmed");
 
-      // 6. Wormhole sequence'ı al (SDK kullanarak)
-      const txResponse = await connection.getTransaction(txid, { commitment: "confirmed", maxSupportedTransactionVersion: 0 });
-      if (!txResponse) {
-           throw new Error(`Failed to fetch confirmed transaction: ${txid}`);
+      // 6. Wormhole mesaj bilgilerini al (SDK Statik Metodu ile)
+      // Wormhole instance oluşturup context almamız gerekiyor
+      const wh = new Wormhole(network, [SolanaPlatform]); // Platformu ekle
+      const solanaContext = wh.getChain("Solana");
+      // Connection'ı context'e ata (SDK bazen bunu gerektirir)
+      // @ts-ignore - tip tanımında olmasa bile atamayı dene
+      solanaContext.rpc = connection;
+
+      // Düzeltme: parseSequenceFromTx yerine parseMessageFromTx kullan
+      // ve ChainContext ile txid'yi (string) ver
+      const messages: SDKMessageId[] = await Wormhole.parseMessageFromTx(solanaContext, txid);
+
+      if (!messages || messages.length === 0) {
+          throw new Error("Could not parse Wormhole messages from transaction");
       }
-      // Wormhole import edildi
-      const sequence = Wormhole.parseSequenceFromTx(txResponse);
+      console.log("Parsed Wormhole Messages:", messages);
 
-      if (sequence === null) {
-          throw new Error("Could not parse Wormhole sequence from transaction");
-      }
-      console.log("Wormhole Sequence:", sequence);
-
-      const emitterAddressString = emitterPda.toBase58(); // Kullandığımız emitter PDA'sını string yap
-      console.log("Emitter Address:", emitterAddressString);
-
-      // UniversalAddress import edildi
-      const messageInfo: SDKMessageId = {
-        chain: "Solana",
-        emitter: new UniversalAddress(emitterAddressString), // UniversalAddress kullan
-        sequence: sequence
-      };
+      // İlk mesajın bilgilerini alalım
+      const firstMessage = messages[0];
+      // const sequence = firstMessage.sequence; // Artık doğrudan messages döndürüyoruz
+      // const emitterAddress = firstMessage.emitter; // Artık doğrudan messages döndürüyoruz
+      // console.log("Wormhole Sequence:", sequence);
+      // console.log("Emitter Address:", emitterAddress.toString());
 
       return {
         txid,
-        messages: [messageInfo]
+        messages: messages // SDK'dan parse edilen mesajları döndür
       };
 
     } catch (error) {
