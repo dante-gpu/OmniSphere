@@ -19,12 +19,12 @@ export interface PoolCreationReceipt {
 export interface WormholeMessageId {
   chain: Chain;
   emitter: string;
-  sequence: string;
+  sequence: bigint;
 }
 
-// Mevcut ağ yapılandırması
-export const CURRENT_NETWORK: Network = "Testnet";
+// Desteklenen zincirleri resmi Chain türünden türet
 export type SupportedChain = Extract<Chain, "Solana" | "Sui">;
+export const CURRENT_NETWORK: Network = "Testnet";
 
 export type { Chain } from '@wormhole-foundation/sdk'; 
 

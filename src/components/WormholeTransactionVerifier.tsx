@@ -1,7 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Button } from './ui/Button';
-import { Card } from './ui/Card';
-import { ArrowUpRight } from 'lucide-react';
 import { WormholeMessageId } from '../types/wormhole';
 
 interface VerifierProps {
@@ -39,7 +36,7 @@ export const WormholeTransactionVerifier = ({ messages }: VerifierProps) => {
         <div key={`${msg.chain}-${msg.sequence}`} className="p-4 border rounded-lg">
           <div className="flex justify-between">
             <span>Chain: {msg.chain}</span>
-            <span>Sequence: {msg.sequence}</span>
+            <span>Sequence: {msg.sequence.toString()}</span>
           </div>
           <div className="mt-2">
             Status: {statuses[`${msg.chain}-${msg.sequence}`] || 'Pending'}
