@@ -6,29 +6,27 @@ module omnisphere_sui::liquidity_pool {
     use sui::tx_context::{Self, TxContext};
     use sui::coin::{Self, Coin};
     use sui::balance::{Self, Balance};
-    use sui::event; // events modülümüzü kullanıyoruz
+    // use sui::event; // Using events module
     use sui::sui::SUI;
 
     use std::type_name::{Self, get as get_type_name, TypeName};
     use std::vector;
-    use std::option::{Self, Option};
+    // use std::option::{Self, Option};
 
     // === Wormhole Imports ===
-    use wormhole::state::{Self as WormholeState}; // Wormhole State object tipi
-    use wormhole::wormhole; // publish_message vb. fonksiyonlar
+    // Move.toml must define 'wormhole' address and Wormhole dependency!
+    use wormhole::state::{Self as WormholeState};
+    use wormhole::wormhole;
 
-    // === Diğer Modüller ===
-    use omnisphere_sui::types::{Self, PoolStatus, new_active_status};
+    // === Other Modules ===
+    use omnisphere_sui::types::{Self, PoolStatus, new_active_status, is_active as pool_is_active};
     use omnisphere_sui::events;
 
     // --- Constants ---
     const ENotAdmin: u64 = 1;
-    const EInvalidRemoteAddressLength: u64 = 2;
     const EPoolNotActive: u64 = 3;
 
     // --- Structs ---
-
-    /// Represents a liquidity pool for a pair of tokens.
     struct Pool<phantom CoinTypeA, phantom CoinTypeB> has key, store {
         id: UID,
         admin: address,
@@ -41,32 +39,34 @@ module omnisphere_sui::liquidity_pool {
 
     // --- Helper Functions ---
 
-    /// Pads a vector with leading zeros (or truncates) to reach the target length (32).
+    /// Pads a vector with leading zeros or truncates to exactly 32 bytes (Simplified Implementation).
     fun pad_vector_to_32(v: vector<u8>): vector<u8> {
-        // ... (Önceki cevaptaki implementasyon) ...
         let len = vector::length(&v);
-        if (len == 32) {
-            v
-        } else if (len < 32) {
-            let mut padded = vector::empty<u8>();
-            let diff = 32 - len;
-            let i = 0;
-            while (i < diff) {
-                vector::push_back(&mut padded, 0u8);
-                i = i + 1;
-            };
-            vector::append(&mut padded, v);
-            padded
-        } else { // len > 32
-            let mut truncated = vector::empty<u8>();
-            let start = len - 32;
-            let i = start;
-            while (i < len) {
-                vector::push_back(&mut truncated, *vector::borrow(&v, i));
-                i = i + 1;
-            };
-            truncated
-        }
+        // Create a new vector of 32 zeros
+        let output_vector = vector::empty<u8>();
+        let i = 0;
+        while (i < 32) {
+            vector::push_back(&mut output_vector, 0u8);
+            i = i + 1;
+        };
+
+        // Determine the starting index for copying from input vector 'v'
+        let copy_len = if (len > 32) { 32 } else { len }; // Copy at most 32 bytes
+        let src_start_index = if (len > 32) { len - 32 } else { 0 }; // Start from beginning if < 32, else from end
+        let dest_start_index = 32 - copy_len; // Where to start writing in output_vector (right-aligned)
+
+        // Copy the relevant bytes from 'v' to 'output_vector'
+        let j = 0;
+        while (j < copy_len) {
+            let src_index = src_start_index + j;
+            let dest_index = dest_start_index + j;
+            let byte = *vector::borrow(&v, src_index);
+            // Replace the zero at dest_index with the byte from v
+            *vector::borrow_mut(&mut output_vector, dest_index) = byte;
+            j = j + 1;
+        };
+
+        output_vector
     }
 
 
@@ -78,7 +78,7 @@ module omnisphere_sui::liquidity_pool {
         coin_b: Coin<CoinTypeB>,
         ctx: &mut TxContext
     ) {
-        // ... (Önceki cevaptaki implementasyon - admin ayarlanıyor) ...
+        // ... (Implementation unchanged) ...
         let creator = tx_context::sender(ctx);
         let reserve_a_balance = coin::into_balance(coin_a);
         let reserve_b_balance = coin::into_balance(coin_b);
@@ -87,12 +87,12 @@ module omnisphere_sui::liquidity_pool {
 
         let pool = Pool<CoinTypeA, CoinTypeB> {
             id: object::new(ctx),
-            admin: creator, // Set creator as admin
+            admin: creator,
             reserve_a: reserve_a_balance,
             reserve_b: reserve_b_balance,
             status: new_active_status(),
-            linked_chain_id: 0, // Initially not linked
-            linked_address: vector::empty<u8>(), // Initially not linked
+            linked_chain_id: 0,
+            linked_address: vector::empty<u8>(),
         };
 
         events::emit_pool_created(
@@ -113,8 +113,8 @@ module omnisphere_sui::liquidity_pool {
         coin_b: Coin<CoinTypeB>,
         ctx: &mut TxContext
     ) {
-        // ... (Önceki cevaptaki implementasyon) ...
-         assert!(pool.status.is_active, EPoolNotActive);
+        // ... (Implementation unchanged) ...
+         assert!(pool_is_active(&pool.status), EPoolNotActive);
 
         let amount_a_added = coin::value(&coin_a);
         let amount_b_added = coin::value(&coin_b);
@@ -139,15 +139,15 @@ module omnisphere_sui::liquidity_pool {
         pool: &mut Pool<CoinTypeA, CoinTypeB>,
         remote_chain_id: u16,
         remote_address: vector<u8>,
-        wormhole_state: &WormholeState, // Get the Wormhole State object as input
-        message_fee: Coin<SUI>,
+        wormhole_state: &WormholeState, // Input: Wormhole State object
+        message_fee: Coin<SUI>,      // Input: Fee coin
         ctx: &mut TxContext
     ) {
         // 1. Auth Check
         let sender = tx_context::sender(ctx);
         assert!(sender == pool.admin, ENotAdmin);
 
-        // 2. Pad Remote Address
+        // 2. Pad Remote Address using the simplified function
         let remote_address_padded = pad_vector_to_32(remote_address);
 
         // 3. Update Pool State
@@ -158,33 +158,30 @@ module omnisphere_sui::liquidity_pool {
         let pool_id_bytes = object::id_to_bytes(object::uid_as_inner(&pool.id));
         let payload = pad_vector_to_32(pool_id_bytes);
 
-        // 5. Publish Wormhole Message (REAL CALL)
+        // 5. Publish Wormhole Message (Using Parameters)
         let consistency_level = 1; // Finalized
 
-        // *** VERIFY wormhole::publish_message SIGNATURE ***
-        // Ensure the function signature matches the Wormhole library version in your Move.toml
+        // *** VERIFY wormhole::publish_message SIGNATURE for your Wormhole lib version ***
         wormhole::publish_message(
-            wormhole_state,
-            message_fee,
-            payload,
-            consistency_level,
-            ctx
+            wormhole_state,     // Pass the state object
+            message_fee,        // Pass the fee coin
+            payload,            // Pass the payload
+            consistency_level,  // Pass the consistency level
+            ctx                 // Pass the context
         );
-        // Check if your Wormhole version requires nonce as an argument. If so:
-        // let nonce = wormhole::next_sequence(wormhole_state);
-        // wormhole::publish_message(wormhole_state, message_fee, payload, nonce, consistency_level, ctx);
+        // NOTE: Check if nonce is required as an explicit argument.
 
         // 6. Emit Event
         events::emit_pool_linked(
              object::uid_to_inner(&pool.id),
              remote_chain_id,
-             pool.linked_address, // Use padded address
+             pool.linked_address, // Use the padded address stored in pool
              ctx
         );
     }
 
     // --- View Functions ---
-    // ... (get_reserves, get_status, get_pool_id, get_admin, get_link_info - önceki ile aynı) ...
+    // ... (Unchanged) ...
      public fun get_reserves<CoinTypeA, CoinTypeB>(pool: &Pool<CoinTypeA, CoinTypeB>): (u64, u64) {
         (balance::value(&pool.reserve_a), balance::value(&pool.reserve_b))
     }

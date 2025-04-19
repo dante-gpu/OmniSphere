@@ -1,11 +1,20 @@
 [package]
 name = "omnisphere_sui"
 version = "0.0.1"
-# edition = "2024.beta" # Optional: Specify Move edition if needed
+# edition = "2024.beta" 
 
 [dependencies]
+# Sui Framework bağımlılığı (Testnet için)
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/testnet" }
-# Add other dependencies like Wormhole integration packages later if needed
+
+# === Wormhole Bağımlılığı ===
+Wormhole = { git = "https://github.com/wormhole-foundation/wormhole.git", subdir = "sui/contracts", rev = "main" } 
 
 [addresses]
-omnisphere_sui = "0x0" # Placeholder address, will be filled after deployment
+# Projenizin adresi (Deploy sonrası güncellenecek)
+omnisphere_sui = "0x0"
+sui = "0x2"
+std = "0x1"
+
+# === Wormhole ===
+wormhole = "0xf47329f4344f3bf0f8e436e2f7b485466cff300f12a166563995d3888c296a94" 
