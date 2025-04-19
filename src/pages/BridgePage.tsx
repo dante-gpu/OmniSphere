@@ -60,7 +60,7 @@ const TESTNET_TOKEN_MAP: Record<SupportedChainOption, Record<TokenSymbolOption, 
   },
   Sui: {
     USDC: {
-      address: "0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29::usdc::USDC", // Example Testnet USDC - VERIFY
+      address: "0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29::usdc::USDC", 
       decimals: 6
     },
     USDT: {

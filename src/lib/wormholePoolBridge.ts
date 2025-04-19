@@ -4,6 +4,7 @@ import {
   Network, // Import Network type
   WormholeMessageId as SDKWormholeMessageId, 
   TokenId, // Keep - Used directly
+  TokenTransfer, 
   // AttestationReceipt, // Removed - Unused type (using any)
   // TransactionId, // Removed - Unused (using string[])
   // UniversalAddress, // Removed - Unused
@@ -72,7 +73,7 @@ export async function initiateWLLTransfer(
       request.amount,
       fromAddr,
       toAddr,
-      true, // Automatic delivery
+      false, // Automatic delivery'i false yap
       undefined // No payload
     );
 
@@ -180,3 +181,22 @@ export function getWormholeMessageId(attestationReceipt: any): WormholeMessageId
 
 // Removed unused function parseWormholeMessages and its helper getChainNameFromId
 // Removed associated interfaces: WormholescanMessage, WormholescanVaaInfo, WormholescanTxResponse
+
+
+export async function completeWLLTransfer(
+  wormhole: Wormhole<Network>,
+  attestation: any,
+  destinationSigner: any
+): Promise<string[]> {
+  try {
+    // Create a TokenTransfer from the attestation
+    const transfer = await TokenTransfer.from(wormhole, attestation);
+    
+    // Complete the transfer on the destination chain
+    const completionTxIds = await transfer.completeTransfer(destinationSigner);
+    return completionTxIds;
+  } catch (error) {
+    console.error("Error completing transfer:", error);
+    throw error;
+  }
+}
