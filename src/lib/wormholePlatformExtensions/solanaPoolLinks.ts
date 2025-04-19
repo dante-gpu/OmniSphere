@@ -4,31 +4,31 @@ import {
     Transaction,
     TransactionInstruction,
     SystemProgram,
-    // SYSVAR_RENT_PUBKEY, // Kullanılmıyor gibi
+    // SYSVAR_RENT_PUBKEY, // Kullanılmıyor
     Keypair,
     // GetTransactionConfig // Kullanılmıyor
   } from '@solana/web3.js';
   import { SolanaPlatform } from '@wormhole-foundation/sdk-solana';
   // Network, Chain, UniversalAddress ana SDK'dan import edilmeli
-  import { WormholeMessageId as SDKMessageId, Chain, UniversalAddress, Network, Wormhole } from '@wormhole-foundation/sdk';
-  // import { encoding } from '@wormhole-foundation/sdk-base'; // encoding kullanılmıyor
+  import { WormholeMessageId as SDKMessageId, Chain, UniversalAddress, Network, Wormhole } from '@wormhole-foundation/sdk'; // Wormhole eklendi
+  // import { encoding } from '@wormhole-foundation/sdk-base'; // Kullanılmıyor
   import {
       getWormholeChainId,
-      createWormholePostMessageInstruction, // Doğru ismi import et
-      getWormholeEmitterAddress, // Kullanılıyor
-      WORMHOLE_PROGRAM_ID, // NETWORK parametresi alan fonksiyonu import et
-      LIQUIDITY_POOL_PROGRAM_ID, // Kullanılıyor
-      parseWormholeSequenceFromLog // Bu satırı ekleyin
+      createWormholePostMessageInstruction, // Doğru isim
+      getWormholeEmitterAddress,
+      WORMHOLE_PROGRAM_ID, // Fonksiyon olarak import et
+      LIQUIDITY_POOL_PROGRAM_ID
   } from './wormholeHelpers';
   import { Buffer } from 'buffer';
   import bs58 from 'bs58';
 
-  (SolanaPlatform.prototype as any).linkPools = async function<N extends Network>(
-    this: SolanaPlatform<N>,
+  // Prototip yerine 'as any' kullan
+  (SolanaPlatform.prototype as any).linkPools = async function(
+    // this: SolanaPlatform<Network, Chain>, // 'this' türünü kaldırıyoruz
     localPoolId: string,
     remotePoolId: string,
     remoteChain: Chain,
-    signer: any // SolanaWalletAdapter type
+    signer: any // Solana Wallet Adapter
   ): Promise<{txid: string, messages: SDKMessageId[]}> {
     console.log(`Linking Solana pool ${localPoolId} to ${remoteChain} pool ${remotePoolId}`);
 
@@ -37,12 +37,8 @@ import {
           throw new Error("Signer does not have a required 'connection' property.");
      }
      const connection: Connection = signer.connection;
-     // Network'ü context'ten veya global'den almalıyız
-     const network = this.network; // Varsayım: Platform context'inde network var
-     if (!network) {
-         throw new Error("Could not determine network from SolanaPlatform context.");
-     }
-
+     // Network'ü global veya config'den almamız lazım. wormholeHelpers'daki NETWORK sabitini kullanalım.
+     const network: Network = 'Testnet'; // VEYA 'Devnet' - helper ile aynı olmalı!
 
     const payerPubkey = new PublicKey(signer.address());
 
@@ -59,7 +55,6 @@ import {
       } else {
         try {
           remotePoolIdBytes = Buffer.from(bs58.decode(remotePoolId));
-          // Hedef zincir Solana ise uzunluk kontrolü yap (Sui ise yapma)
           if (remoteChain === 'Solana' && remotePoolIdBytes.length !== 32) {
                throw new Error('Invalid Solana address length after decode.');
           }
@@ -70,12 +65,12 @@ import {
       }
 
       // Payload: Sadece local Pool ID (bytes)
-      const payload = Buffer.from(localPoolIdPubkey.toBytes()); // Argümansız toBytes()
+      const payload = Buffer.from(localPoolIdPubkey.toBytes()); // Argümansız
       console.log("Prepared payload for Wormhole message (localPoolId):", payload.toString('hex'));
 
       // 3.1 Kendi programınız için instruction
       const liquidityPoolProgram = new PublicKey(LIQUIDITY_POOL_PROGRAM_ID);
-      const linkPoolInstruction = createLinkPoolInstruction_YOUR_IMPLEMENTATION({
+      const linkPoolInstruction = createLinkPoolInstruction_YOUR_IMPLEMENTATION({ // Placeholder
         programId: liquidityPoolProgram,
         poolAccount: localPoolIdPubkey,
         remoteChainId: remoteChainId,
@@ -86,10 +81,16 @@ import {
       // 3.2 Wormhole mesaj instruction
       const WORMHOLE_PROGRAM_ID_PUBKEY = new PublicKey(WORMHOLE_PROGRAM_ID(network)); // Ağ'a göre al
       const messageAccountKeypair = Keypair.generate();
+      // Emitter adresi: Eğer kendi programınız mesajı yayınlıyorsa onun PDA'sı,
+      // yoksa Wormhole'un varsayılan emitter PDA'sı olmalı.
+      // Şimdilik varsayılanı kullanalım (helper'dan alarak)
+      const emitterPda = new PublicKey(getWormholeEmitterAddress(WORMHOLE_PROGRAM_ID_PUBKEY)); // String'den PublicKey'e
+
       const wormholeInstruction = createWormholePostMessageInstruction(
           payerPubkey,
-          WORMHOLE_PROGRAM_ID_PUBKEY, // Program ID'yi helper'a ver
+          WORMHOLE_PROGRAM_ID_PUBKEY,
           messageAccountKeypair,
+          emitterPda, // Emitter PDA'sını ver
           nonce,
           payload,
           1 // Consistency Level: Confirmed
@@ -104,10 +105,10 @@ import {
       transaction.recentBlockhash = blockhash;
       transaction.feePayer = payerPubkey;
 
-      transaction.partialSign(messageAccountKeypair);
+      transaction.partialSign(messageAccountKeypair); // Sadece mesaj hesabı (biz oluşturduk)
 
       console.log("Signing and sending transaction...");
-      const signedTx = await signer.signTransaction(transaction);
+      const signedTx = await signer.signTransaction(transaction); // Cüzdan sadece kendi imzasını atar
       const txid = await connection.sendRawTransaction(signedTx.serialize());
 
       console.log("Transaction sent with ID:", txid);
@@ -127,15 +128,15 @@ import {
       if (!txResponse) {
            throw new Error(`Failed to fetch confirmed transaction: ${txid}`);
       }
-      // Parse the Wormhole sequence from transaction
-      const sequence = parseWormholeSequenceFromLog(txResponse);
+      // Wormhole import edildi
+      const sequence = Wormhole.parseSequenceFromTx(txResponse);
 
       if (sequence === null) {
           throw new Error("Could not parse Wormhole sequence from transaction");
       }
       console.log("Wormhole Sequence:", sequence);
 
-      const emitterAddressString = getWormholeEmitterAddress(WORMHOLE_PROGRAM_ID_PUBKEY); // Helper'a program ID ver
+      const emitterAddressString = emitterPda.toBase58(); // Kullandığımız emitter PDA'sını string yap
       console.log("Emitter Address:", emitterAddressString);
 
       // UniversalAddress import edildi
@@ -166,7 +167,7 @@ import {
   }): TransactionInstruction {
       console.warn("createLinkPoolInstruction_YOUR_IMPLEMENTATION needs to be implemented based on your Solana program!");
       const dataLayout = Buffer.alloc(1 + 2 + params.remotePoolAddress.length);
-      dataLayout.writeUInt8(1, 0);
+      dataLayout.writeUInt8(1, 0); // Discriminator
       dataLayout.writeUInt16BE(params.remoteChainId, 1);
       params.remotePoolAddress.copy(dataLayout, 3);
 
