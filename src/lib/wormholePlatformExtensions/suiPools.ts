@@ -1,31 +1,22 @@
 import { SuiPlatform } from '@wormhole-foundation/sdk-sui';
-// Network ve Chain'i ana SDK'dan import et
 import { WormholeMessageId as SDKMessageId, Chain, UniversalAddress, Network, Wormhole } from '@wormhole-foundation/sdk';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
-// import { SuiClient } from '@mysten/sui.js/client'; // Kullanılmıyor
-// import { encoding } from '@wormhole-foundation/sdk-base'; // Kullanılmıyor
-import { getWormholeChainId } from './wormholeHelpers'; // Helper import edildi
+import { getWormholeChainId } from './wormholeHelpers'; 
 import { Buffer } from 'buffer';
 import bs58 from 'bs58';
-// CONFIG import edilmeli
 import { CONFIG } from '@wormhole-foundation/sdk';
-// Sui işlem yanıt türünü import et
 import { SuiTransactionBlockResponse } from '@mysten/sui.js/client';
 
 
-// Prototip yerine 'as any' kullan
 (SuiPlatform.prototype as any).linkPools = async function(
-  // this: SuiPlatform<Network, Chain>, // 'this' türünü kaldırıyoruz, context sorunları yaratabiliyor
   localPoolId: string,
   remotePoolId: string,
   remoteChain: Chain,
   signer: any // Sui Wallet Adapter
-): Promise<{txid: string, messages: SDKMessageId[]}> { // messages döndürülüyor
+): Promise<{txid: string, messages: SDKMessageId[]}> { 
   console.log(`Linking Sui pool ${localPoolId} to ${remoteChain} pool ${remotePoolId}`);
 
-  // Network'ü global veya config'den almamız lazım. wormholeHelpers'daki NETWORK sabitini kullanalım.
-  // Veya bu fonksiyonu çağıran yerden Network bilgisini almalıyız.
-  const network: Network = 'Testnet'; // VEYA 'Devnet' - helper ile aynı olmalı!
+  const network: Network = 'Testnet'; 
 
 
   if (!signer || !signer.account) {

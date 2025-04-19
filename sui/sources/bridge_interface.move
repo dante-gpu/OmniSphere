@@ -1,5 +1,4 @@
-/// Placeholder module for Wormhole bridge interactions.
-/// In a real implementation, this would interact with the Wormhole Core Bridge package.
+
 module omnisphere_sui::bridge_interface {
 
     use sui::object::{Self, ID, UID}; // Import Self for object functions
