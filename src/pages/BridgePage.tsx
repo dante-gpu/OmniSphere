@@ -1,45 +1,37 @@
 import * as React from 'react'; // Use * as import
-import { useState, useCallback } from 'react'; // Removed unused useMemo
+import { useState, useCallback } from 'react';
 import {
   ArrowRightLeft,
   Clock,
   Shield,
   Zap,
   ChevronDown,
-  // RefreshCw // Removed unused import
 } from 'lucide-react';
 import * as dayjs from 'dayjs'; // Use * as import
 import * as relativeTime from 'dayjs/plugin/relativeTime'; // Use namespace import for plugin
 import toast from 'react-hot-toast';
-import { useWallet as useSuiWallet } from '@suiet/wallet-kit'; // Keep hook import
+// Removed non-existent WalletAccount import
+import { useWallet as useSuiWallet } from '@suiet/wallet-kit';
 import { useConnection, useWallet as useSolanaWallet } from '@solana/wallet-adapter-react';
 import {
   Wormhole,
   Chain,
   Network,
-  // ChainContext, // Removed unused import
   TokenId,
-  // Signer, // Removed unused import
-  UniversalAddress, // Keep for SDK type definitions if needed implicitly
 } from '@wormhole-foundation/sdk';
-// import { EvmPlatform } from "@wormhole-foundation/sdk-evm"; // Not needed
-// import { SolanaPlatform } from "@wormhole-foundation/sdk-solana"; // Platforms loaded dynamically or in bridge function
-// import { SuiPlatform } from "@wormhole-foundation/sdk-sui"; // Platforms loaded dynamically or in bridge function
+// Platforms are needed by Wormhole constructor
+import { SolanaPlatform } from "@wormhole-foundation/sdk-solana";
+import { SuiPlatform } from "@wormhole-foundation/sdk-sui";
 import {
   initiateWLLTransfer,
   WLLTransferRequest,
   getWormholeMessageId,
   WormholeMessageId as LocalWormholeMessageId // Import local MessageId type
-} from '../lib/wormholePoolBridge'; // Import WLL function and local message id type
+} from '../lib/wormholePoolBridge';
 import { SolanaSignerAdapter, SuiSignerAdapter } from '../lib/wormholeSignerAdapters';
 import { PublicKey } from '@solana/web3.js';
 import { Button } from '../components/ui/Button';
-import {
-  // amount as sdkAmount, // Removed unused import
-  // SignAndSendSigner, // Removed unused import
-  TransactionId, // Keep - used conceptually for tx ids even if they are strings now
-  WormholeMessageId, // Keep SDK's type for reference, but use local one for state
-} from '@wormhole-foundation/sdk';
+// Removed unused SDK import block
 import { utils as ethersUtils } from 'ethers';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 
@@ -59,22 +51,22 @@ const supportedChains: SupportedChainOption[] = ["Solana", "Sui"];
 type TokenSymbolOption = "USDC" | "USDT";
 const supportedTokens: TokenSymbolOption[] = ["USDC", "USDT"];
 
-// Define Testnet Token Addresses (REPLACE WITH ACTUAL ADDRESSES if needed)
-// Note: Sui USDT address is a placeholder as it's not officially on testnet
+
+// Define Testnet Token Addresses
 const TESTNET_TOKEN_MAP: Record<SupportedChainOption, Record<TokenSymbolOption, { address: string; decimals: number }>> = {
   Solana: {
-    USDC: { address: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", decimals: 6 }, // Using Mainnet USDC for broader testing/devnet compatibility
+    USDC: { address: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU", decimals: 6 }, // Devnet USDC
     USDT: { address: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", decimals: 6 }, // Devnet USDT
   },
   Sui: {
     USDC: {
-      address: "0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29::usdc::USDC", // Example Testnet USDC - VERIFY ADDRESS
+      address: "0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29::usdc::USDC", // Example Testnet USDC - VERIFY
       decimals: 6
     },
     USDT: {
-      // Placeholder address as USDT isn't officially on Sui Testnet
-      address: "0x06d8af9e6afd27262db436f0d37b304a041f710c3ea1fa4c3a9bab36b3569ad3::coin::COIN", // Example placeholder COIN type - VERIFY/REPLACE
-      decimals: 6 // Assuming 6 decimals for placeholder
+      // Placeholder address
+      address: "0x06d8af9e6afd27262db436f0d37b304a041f710c3ea1fa4c3a9bab36b3569ad3::coin::COIN", // Placeholder - VERIFY/REPLACE
+      decimals: 6
     },
   }
 };
@@ -87,7 +79,7 @@ const BridgePage = () => {
   const [amount, setAmount] = useState('');
   const [recipientAddress, setRecipientAddress] = useState('');
   const [isBridging, setIsBridging] = useState(false);
-  // Update state type to use string[] for txIds and local WormholeMessageId
+  // State type uses string[] for txIds and local WormholeMessageId
   const [bridgeResult, setBridgeResult] = useState<{ message?: string; error?: string; txIds?: string[]; messageId?: LocalWormholeMessageId } | null>(null);
 
   const suiWallet = useSuiWallet();
@@ -147,13 +139,14 @@ const BridgePage = () => {
 
     const network: Network = "Testnet"; // Assuming Testnet
 
-    // Check wallet connections first
-    if (fromChain === 'Solana' && (!solanaWallet.connected || !solanaWallet.publicKey || !connection)) {
-      toast.error("Please connect your Solana wallet and ensure connection is available.");
+    // Check wallet connections first and required methods/properties
+    if (fromChain === 'Solana' && (!solanaWallet.connected || !solanaWallet.publicKey || !connection || !solanaWallet.signTransaction || !solanaWallet.sendTransaction)) {
+      toast.error("Please connect your Solana wallet, ensure connection is available, and that the wallet supports signing/sending transactions.");
       return;
     }
-    if (fromChain === 'Sui' && (!suiWallet.connected || !suiWallet.account)) {
-      toast.error("Please connect your Sui wallet.");
+    // Ensure Sui wallet has account AND the necessary function
+    if (fromChain === 'Sui' && (!suiWallet.connected || !suiWallet.account || !suiWallet.signAndExecuteTransactionBlock)) {
+      toast.error("Please connect your Sui wallet and ensure it supports signing/executing transactions.");
       return;
     }
 
@@ -162,38 +155,31 @@ const BridgePage = () => {
     const toastId = toast.loading(`Bridging ${amount} ${selectedToken} from ${fromChain} to ${toChain}...`);
 
     try {
-      // Initialize Wormhole SDK - Platforms needed by initiateWLLTransfer are loaded there implicitly or passed
-      // We don't need to explicitly pass SolanaPlatform/SuiPlatform here if initiateWLLTransfer handles it
-      const wh = new Wormhole(network, []); // Pass empty array, platforms loaded as needed by SDK/bridge function
-
-      // Note: Setting RPC on chain context might not be needed if SDK handles it via signer or discovery
-      // if (fromChain === 'Solana' && connection) {
-      //   const solanaChain = wh.getChain('Solana');
-      //   if (solanaChain) solanaChain.rpc = connection; // Check if context exists
-      // }
+      // Initialize Wormhole SDK with relevant platforms
+      const wh = new Wormhole(network, [SolanaPlatform, SuiPlatform]);
 
       // Get the appropriate signer based on the chain
       let sourceSigner;
       if (fromChain === 'Solana') {
-        if (typeof solanaWallet.signTransaction === 'function' && typeof solanaWallet.sendTransaction === 'function') {
-          sourceSigner = new SolanaSignerAdapter(solanaWallet);
-        } else {
-          throw new Error('Solana wallet does not support required signing methods');
-        }
-      } else if (fromChain === 'Sui') {
-        sourceSigner = new SuiSignerAdapter(suiWallet);
-      } else {
-        throw new Error(`Unsupported chain or wallet configuration: ${fromChain}`);
+         // Pass connection to the adapter as required by the updated adapter
+         sourceSigner = new SolanaSignerAdapter(solanaWallet, connection);
+      } else { // fromChain === 'Sui'
+        // Correctly pass object matching the SuiWalletAdapter interface
+        // Use 'as any' for signAndExecuteTransactionBlock as a workaround for potential
+        // conflicting @mysten/sui.js versions.
+        // TODO: Resolve dependency conflicts for @mysten/sui.js for a cleaner solution.
+        sourceSigner = new SuiSignerAdapter({
+            account: suiWallet.account!, // Use non-null assertion as it's checked
+            signAndExecuteTransactionBlock: suiWallet.signAndExecuteTransactionBlock! as any
+        });
       }
 
       // Double-check signer address
       const connectedAddress = fromChain === 'Solana' ? solanaWallet.publicKey?.toBase58() : suiWallet.account?.address;
-      const signerAddress = sourceSigner.address(); // Get address from adapter
+      const signerAddress = sourceSigner.address();
 
       if (!connectedAddress || signerAddress !== connectedAddress) {
-          // Attempt to normalize or compare differently if needed (e.g., case sensitivity)
           console.warn(`Signer address (${signerAddress}) vs Connected address (${connectedAddress}) mismatch detected.`);
-          // Decide whether to throw error or proceed cautiously
           throw new Error(`SDK Signer address does not match connected wallet. Ensure the correct wallet is active.`);
       }
 
@@ -204,14 +190,22 @@ const BridgePage = () => {
         throw new Error(`Token ${selectedToken} not configured for ${fromChain} on Testnet.`);
       }
 
+       // Specific check for placeholder Sui USDT - using includes might be too broad
+       // Check against the exact placeholder address if known, or improve the check
+       if (fromChain === 'Sui' && selectedToken === 'USDT' && tokenInfo.address === "0x06d8af9e6afd27262db436f0d37b304a041f710c3ea1fa4c3a9bab36b3569ad3::coin::COIN") {
+           toast.error("Bridging placeholder USDT from Sui Testnet is not supported.", { id: toastId });
+           setIsBridging(false);
+           return;
+       }
+
       // Prepare Transfer Request
       const amountInAtomicUnits = ethersUtils.parseUnits(amount, tokenInfo.decimals).toBigInt();
-      const tokenId: TokenId = Wormhole.tokenId(fromChain, tokenInfo.address);
+      const tokenId: TokenId = Wormhole.tokenId(fromChain, tokenInfo.address === 'native' ? 'native' : tokenInfo.address);
 
       const transferRequest: WLLTransferRequest = {
         fromChain: fromChain,
         toChain: toChain,
-        fromAddress: signerAddress, // Use address confirmed from signer
+        fromAddress: signerAddress,
         toAddress: recipientAddress,
         token: tokenId,
         amount: amountInAtomicUnits,
@@ -221,22 +215,20 @@ const BridgePage = () => {
       const result = await initiateWLLTransfer(wh, transferRequest, sourceSigner);
 
       if (result.error) {
-        throw new Error(result.error); // Throw error to be caught below
+        throw new Error(result.error);
       }
 
       // Handle success
       const messageId = result.attestation ? getWormholeMessageId(result.attestation) : undefined;
-      // Ensure result.originTxIds is treated as string[]
       const txIdSnippet = result.originTxIds && result.originTxIds.length > 0
-        ? result.originTxIds[0].substring(0, 6) // Access string directly
+        ? result.originTxIds[0].substring(0, 6)
         : 'N/A';
       const successMessage = `Bridge initiated! TxID: ${txIdSnippet}... ${messageId ? `Msg Seq: ${messageId.sequence}` : ''}`;
 
-      // Update state with correct types
       setBridgeResult({
           message: successMessage,
-          txIds: result.originTxIds, // Already string[]
-          messageId: messageId        // Already LocalWormholeMessageId | undefined
+          txIds: result.originTxIds,
+          messageId: messageId
       });
       toast.success(successMessage, { id: toastId, duration: 8000 });
 
@@ -246,16 +238,16 @@ const BridgePage = () => {
       console.error("Bridging failed:", error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       if (errorMessage.includes('Transaction rejected') || errorMessage.includes('User rejected')) {
-          setBridgeResult({ error: 'Transaction rejected by user.', txIds: [] }); // Include empty txIds
+          setBridgeResult({ error: 'Transaction rejected by user.', txIds: [] });
           toast.error('Transaction rejected by user.', { id: toastId });
       } else {
-          setBridgeResult({ error: errorMessage, txIds: [] }); // Include empty txIds
+          setBridgeResult({ error: errorMessage, txIds: [] });
           toast.error(`Bridging failed: ${errorMessage}`, { id: toastId });
       }
     } finally {
       setIsBridging(false);
     }
-  }, [fromChain, toChain, selectedToken, amount, recipientAddress, solanaWallet, suiWallet, connection]); // Added connection dependency
+  }, [fromChain, toChain, selectedToken, amount, recipientAddress, solanaWallet, suiWallet, connection]);
 
 
   return (
@@ -279,7 +271,7 @@ const BridgePage = () => {
                 >
                   {supportedChains.map(chain => (
                     <option key={chain} value={chain} disabled={chain === toChain}>
-                      {chain} {/* Display chain name directly */}
+                      {chain}
                     </option>
                   ))}
                 </select>
@@ -299,7 +291,7 @@ const BridgePage = () => {
                 onClick={handleSwapChains}
                 className="md:absolute md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 z-10 p-2"
                 disabled={isBridging}
-                aria-label="Swap chains" // Added aria-label
+                aria-label="Swap chains"
               >
                 <ArrowRightLeft className="text-primary" size={20} />
               </Button>
@@ -318,7 +310,7 @@ const BridgePage = () => {
                 >
                    {supportedChains.map(chain => (
                     <option key={chain} value={chain} disabled={chain === fromChain}>
-                       {chain} {/* Display chain name directly */}
+                       {chain}
                     </option>
                   ))}
                 </select>
@@ -344,7 +336,7 @@ const BridgePage = () => {
                   disabled={isBridging}
                 >
                    {supportedTokens.map(token => (
-                    <option key={token} value={token}>
+                    <option key={token} value={token} disabled={fromChain === 'Sui' && token === 'USDT'}>
                        {token}
                     </option>
                   ))}
@@ -359,26 +351,25 @@ const BridgePage = () => {
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="bridgeAmount" className="block text-sm font-medium text-neutral-600">Amount</label> {/* Added htmlFor */}
+              <label htmlFor="bridgeAmount" className="block text-sm font-medium text-neutral-600">Amount</label>
               <div className="relative">
                 <input
-                  id="bridgeAmount" // Added id
+                  id="bridgeAmount"
                   type="number"
                   value={amount}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAmount(e.target.value)}
                   placeholder="0.00"
                   className="input pr-24 w-full"
                   disabled={isBridging}
-                  min="0" // Added min attribute
+                  min="0"
                 />
-                {/* Placeholder for MAX button logic */}
               </div>
             </div>
 
              <div className="space-y-2">
-              <label htmlFor="recipientAddress" className="block text-sm font-medium text-neutral-600">Recipient Address ({toChain})</label> {/* Added htmlFor */}
+              <label htmlFor="recipientAddress" className="block text-sm font-medium text-neutral-600">Recipient Address ({toChain})</label>
               <input
-                id="recipientAddress" // Added id
+                id="recipientAddress"
                 type="text"
                 value={recipientAddress}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRecipientAddress(e.target.value)}
@@ -393,11 +384,11 @@ const BridgePage = () => {
           <div className="bg-neutral-50 rounded-xl p-4 mb-6">
              <div className="flex justify-between text-sm text-neutral-600">
                 <span>Estimated Fees</span>
-                <span>~0.01 {fromChain === 'Sui' ? 'SUI' : 'SOL'} + Relayer Fee</span> {/* Updated text */}
+                <span>~0.01 {fromChain === 'Sui' ? 'SUI' : 'SOL'} + Relayer Fee</span>
              </div>
              <div className="flex justify-between text-sm text-neutral-600 mt-1">
                 <span>Estimated Time</span>
-                <span>~ 1-5 minutes</span> {/* Updated text */}
+                <span>~ 1-5 minutes</span>
              </div>
           </div>
 
@@ -412,14 +403,11 @@ const BridgePage = () => {
               <h4 className="font-medium mb-2">{bridgeResult.error ? 'Error:' : 'Bridge Initiated:'}</h4>
               <p className="text-sm break-words">
                 {bridgeResult.error ? bridgeResult.error : bridgeResult.message}
-                {/* Display Origin Tx IDs */}
                 {bridgeResult.txIds && bridgeResult.txIds.length > 0 && (
                   <span className="block mt-1">
-                    {/* Correctly access the string tx id */}
                     Origin Tx: {bridgeResult.txIds[0].substring(0, 10)}...
                   </span>
                 )}
-                {/* Display Wormhole Message ID if available */}
                 {bridgeResult.messageId && (
                    <span className="block mt-1">
                      Wormhole Msg: Chain {bridgeResult.messageId.chain}, Seq {bridgeResult.messageId.sequence.toString()}
@@ -450,7 +438,7 @@ const BridgePage = () => {
                 <Zap className="text-primary w-8 h-8 mt-1 flex-shrink-0" />
                 <div>
                     <h3 className="font-semibold mb-1">Low Fees</h3>
-                    <p className="text-sm text-neutral-600">Benefit from competitive bridging fees via relayers.</p> {/* Updated text */}
+                    <p className="text-sm text-neutral-600">Benefit from competitive bridging fees via relayers.</p>
                 </div>
             </div>
         </div>
