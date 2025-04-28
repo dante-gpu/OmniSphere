@@ -173,30 +173,37 @@ module omnisphere_sui::liquidity_pool {
         pool: &mut Pool<CoinTypeA, CoinTypeB>,
         amount_a: u64,
         amount_b: u64,
+        // TODO: Pass TreasuryCap<CoinTypeA> and TreasuryCap<CoinTypeB> if needed for minting wrapped assets.
+        // Alternatively, the bridge/pool might hold these capabilities.
         ctx: &mut TxContext // Context is needed for events
     ) {
         assert!(pool_is_active(&pool.status), EPoolNotActive);
 
-        // TODO: Implement actual minting/transfer logic for wrapped assets if necessary.
-        // This example assumes the amounts represent liquidity increases directly.
-        // In a real scenario, you might need to mint wrapped tokens or unlock
-        // tokens held in escrow based on the VAA.
-        // For simplicity, we directly increase the balance values here.
+        // --- Real Token Handling (Placeholder) ---
+        // 1. Determine if CoinTypeA/CoinTypeB are wrapped assets requiring minting.
+        // 2. If minting is required, use the appropriate TreasuryCap to mint Coins.
+        //    Example (requires TreasuryCap passed or held by contract):
+        //    let coin_a_minted: Coin<CoinTypeA> = coin::mint_and_transfer(treasury_cap_a, amount_a, recipient, ctx);
+        //    let coin_b_minted: Coin<CoinTypeB> = coin::mint_and_transfer(treasury_cap_b, amount_b, recipient, ctx);
+        //    let balance_a = coin::into_balance(coin_a_minted);
+        //    let balance_b = coin::into_balance(coin_b_minted);
+        // 3. If tokens are unlocked from escrow (another pattern), implement that logic.
 
-        let current_reserve_a = balance::value(&pool.reserve_a);
-        let current_reserve_b = balance::value(&pool.reserve_b);
+        // --- Current Simplified Implementation (Using balance::increase_supply) ---
+        // WARNING: This is NOT production-ready without proper token handling.
+        // It assumes the balances can be artificially inflated for demonstration.
+        balance::increase_supply(&mut pool.reserve_a, amount_a); // Needs supply capability held by the Balance itself
+        balance::increase_supply(&mut pool.reserve_b, amount_b); // Needs supply capability held by the Balance itself
+        // --- End Simplified Implementation ---
 
-        // Direct addition to balances (requires creating new Balance objects)
-        // This is a simplified approach. A more robust way involves TreasuryCaps or similar.
-        // This assumes the balances can be artificially inflated for this example.
-        // WARNING: This is likely NOT production-ready without proper token handling.
-        balance::increase_supply(&mut pool.reserve_a, amount_a); // Needs supply capability
-        balance::increase_supply(&mut pool.reserve_b, amount_b); // Needs supply capability
+        // Join the actual balances (minted/unlocked) to the pool
+        // balance::join(&mut pool.reserve_a, balance_a);
+        // balance::join(&mut pool.reserve_b, balance_b);
 
-        // Emit event
+        // Emit event (Consider adding VAA details like sequence number)
         events::emit_liquidity_added(
             object::uid_to_inner(&pool.id),
-            @0x0, // Use a designated bridge address or parse from VAA if needed
+            @0x0, // Placeholder: Use a designated bridge address or parse from VAA if needed
             amount_a,
             amount_b,
             ctx
