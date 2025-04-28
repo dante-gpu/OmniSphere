@@ -109,17 +109,22 @@ module omnisphere_sui::liquidity_pool {
     // --- Public Functions ---
 
     /// Creates a new liquidity pool and shares it.
+    /// Allows creation with zero initial balances (e.g., for VAA-triggered creation).
     public fun create_pool<CoinTypeA, CoinTypeB>(
         coin_a: Coin<CoinTypeA>,
         coin_b: Coin<CoinTypeB>,
         ctx: &mut TxContext
     ) {
-        // ... (Implementation unchanged) ...
         let creator = tx_context::sender(ctx);
+
+        // Allow zero value coins, create balances accordingly
+        let initial_liquidity_a = coin::value(&coin_a);
+        let initial_liquidity_b = coin::value(&coin_b);
+
         let reserve_a_balance = coin::into_balance(coin_a);
         let reserve_b_balance = coin::into_balance(coin_b);
-        let initial_liquidity_a = balance::value(&reserve_a_balance);
-        let initial_liquidity_b = balance::value(&reserve_b_balance);
+
+        // Balances will correctly reflect zero if input coins had zero value.
 
         let pool = Pool<CoinTypeA, CoinTypeB> {
             id: object::new(ctx),
@@ -127,16 +132,17 @@ module omnisphere_sui::liquidity_pool {
             reserve_a: reserve_a_balance,
             reserve_b: reserve_b_balance,
             status: new_active_status(),
-            linked_chain_id: 0,
-            linked_address: vector::empty<u8>(),
+            linked_chain_id: 0,          // Not linked initially
+            linked_address: vector::empty<u8>(), // Not linked initially
         };
 
         events::emit_pool_created(
             object::uid_to_inner(&pool.id),
+            creator, // Added creator to event
             get_type_name<CoinTypeA>(),
             get_type_name<CoinTypeB>(),
-            initial_liquidity_a,
-            initial_liquidity_b,
+            initial_liquidity_a, // Will be 0 if created empty
+            initial_liquidity_b, // Will be 0 if created empty
             ctx
         );
         transfer::share_object(pool);

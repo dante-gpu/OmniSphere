@@ -155,6 +155,9 @@ module omnisphere_sui::bridge_interface {
     public fun process_vaa_for_factory<CoinTypeA, CoinTypeB>(
         vaa_bytes: vector<u8>,
         factory: &Factory,         // Pass the shared Factory object
+        // Required TreasuryCaps to initialize the pool with zero coins
+        treasury_cap_a: &TreasuryCap<CoinTypeA>,
+        treasury_cap_b: &TreasuryCap<CoinTypeB>,
         wormhole_state: &WormholeState,
         clock: &Clock,
         // TODO: Define expected remote factory address/chain based on CoinTypeA/B or other logic
@@ -197,9 +200,11 @@ module omnisphere_sui::bridge_interface {
         // until the initial coin/TreasuryCap handling is resolved.
         factory::create_pool_from_vaa<CoinTypeA, CoinTypeB>(
             factory,
+            treasury_cap_a, // Pass the cap
+            treasury_cap_b, // Pass the cap
             // Pass extracted VAA/payload parameters needed by the factory function
-            // source_chain_id: vaa.emitter_chain_id,
-            // source_factory_address: vaa.emitter_address,
+            vaa.emitter_chain_id,      // Example: pass source chain from VAA
+            vaa.emitter_address,       // Example: pass source address from VAA
             ctx
         );
 

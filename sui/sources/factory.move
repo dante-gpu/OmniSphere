@@ -13,6 +13,9 @@ module omnisphere_sui::factory {
     use omnisphere_sui::types::{OPERATION_CREATE_POOL}; // Use the constant
     use omnisphere_sui::events; // Emit events if necessary
 
+    // === Constants ===
+    const ESourceFactoryNotTrusted: u64 = 201;
+
     // === Structs ===
 
     /// Factory state object, typically created once during module publishing.
@@ -50,55 +53,40 @@ module omnisphere_sui::factory {
     /// Creates a new liquidity pool based on data from a VAA.
     /// This function should be called by the bridge interface after VAA verification.
     /// Requires the emitter to be a trusted factory address on the source chain.
+    /// Assumes the factory has access to the necessary TreasuryCaps to create initial zero coins.
     public fun create_pool_from_vaa<CoinTypeA, CoinTypeB>(
-        factory: &Factory, // Pass the shared Factory object
-        // VAA details needed:
-        // source_chain_id: u16,
-        // source_factory_address: vector<u8>,
-        // initial_liquidity_a: u64, // These might not be needed if pool starts empty
-        // initial_liquidity_b: u64,
-        // Maybe info about the linked pool address on the source chain?
-
-        // TODO: Define exact parameters needed from VAA payload for pool creation.
-        // The payload might just indicate the token pair for an empty pool.
-
-        // TODO: Verify that the VAA emitter (source_factory_address from VAA)
-        // is a trusted factory registered in the `factory` object for the `source_chain_id`.
+        factory: &Factory,
+        // Pass TreasuryCaps needed to create zero-value coins for pool initialization
+        treasury_cap_a: &TreasuryCap<CoinTypeA>,
+        treasury_cap_b: &TreasuryCap<CoinTypeB>,
+        // VAA details (caller needs to parse these from VAA payload)
+        source_chain_id: u16,
+        source_factory_address: vector<u8>,
+        // Add other parameters derived from VAA payload if needed (e.g., target pool link info)
+        ctx: &mut TxContext
+    ) {
+        // TODO: Verify that the VAA emitter (source_factory_address) is a trusted factory
+        // registered in the `factory` object for the `source_chain_id`.
         // assert!(is_trusted_factory(factory, source_chain_id, source_factory_address), ESourceFactoryNotTrusted);
 
-        // Create initial empty coins if starting an empty pool.
-        // This requires TreasuryCaps for CoinTypeA and CoinTypeB.
-        // This is a major dependency - how does the factory get these? Parameter, stored, etc.?
-        // Placeholder: Assume we can create empty coins for now.
-        // let coin_a_initial: Coin<CoinTypeA> = coin::zero(ctx); // Needs TreasuryCap or different approach
-        // let coin_b_initial: Coin<CoinTypeB> = coin::zero(ctx);
+        // Create initial empty coins using the provided TreasuryCaps
+        // We mint zero value coins and immediately take them into balances.
+        let coin_a_initial: Coin<CoinTypeA> = coin::mint(treasury_cap_a, 0, ctx);
+        let coin_b_initial: Coin<CoinTypeB> = coin::mint(treasury_cap_b, 0, ctx);
 
-        // Placeholder: Directly calling internal create_pool which requires initial coins.
-        // This needs refinement based on how initial liquidity/tokens are handled.
-        // If pools are created empty, create_pool_internal needs modification
-        // or a new internal function is required.
-        // *** The create_pool function expects ACTUAL Coin objects, not just types ***
-        // *** This part requires significant design decision on how mirror pools are initialized ***
-
-        // Option 1: Create pool with zero initial balance (requires modifying create_pool or new func)
-        // Option 2: Require initial deposit via a separate mechanism after pool creation
-        // Option 3: VAA payload contains initial amounts to be minted (needs TreasuryCaps)
-
-        // For now, we cannot directly call create_pool_internal without Coin objects.
-        // Placeholder: Abort until design is finalized.
-        abort(0); // Placeholder: Cannot proceed without initial coins or modified pool creation logic
-
-        /*
-        // Assuming create_pool_internal can be called (e.g., modified to accept zero coins)
-        // or initial Coin objects `coin_a_initial`, `coin_b_initial` are somehow obtained:
+        // Call the internal pool creation function (which now accepts zero-value coins)
         create_pool_internal<CoinTypeA, CoinTypeB>(
-             coin_a_initial,
-             coin_b_initial,
+             coin_a_initial, // Pass the zero-value coin
+             coin_b_initial, // Pass the zero-value coin
              ctx
          );
-        // TODO: Potentially link the newly created pool back to the source pool/factory using info from VAA?
-        // TODO: Emit an event for PoolCreatedFromVAA?
-        */
+
+        // TODO: Emit an event for PoolCreatedFromVAA, potentially including source chain info?
+        // events::emit_pool_created_from_vaa(...);
+
+        // TODO: Optionally, link the newly created pool back to the source pool/factory.
+        // This would require the source pool address in the VAA payload and calling
+        // liquidity_pool::link_and_publish on the newly created pool.
     }
 
     // --- Helper Functions (Example) ---
