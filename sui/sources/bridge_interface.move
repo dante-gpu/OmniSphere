@@ -17,9 +17,11 @@ module omnisphere_sui::bridge_interface {
 
     // OmniSphere Imports
     use omnisphere_sui::liquidity_pool::{Self, Pool};
+    use omnisphere_sui::factory::{Self, Factory}; // Import Factory
     use omnisphere_sui::types::{         // Import necessary operation codes
         OPERATION_ADD_LIQUIDITY,
-        OPERATION_REMOVE_LIQUIDITY
+        OPERATION_REMOVE_LIQUIDITY,
+        OPERATION_CREATE_POOL
     };
     use omnisphere_sui::events::{ // Import specific event emitters
         emit_liquidity_removed, emit_vaa_processed
@@ -32,6 +34,7 @@ module omnisphere_sui::bridge_interface {
     const EVAAEmitterMismatch: u64 = 103;
     const EVAAConsumedOrInvalid: u64 = 104;
     const EAddressConversionError: u64 = 105; // Error for address conversion
+    const EFactoryMismatch: u64 = 106; // Error if VAA emitter is not the expected factory
 
     // === Helper Functions ===
 
@@ -147,8 +150,66 @@ module omnisphere_sui::bridge_interface {
         // Done above within specific operation blocks
     }
 
+    /// Processes a verified Wormhole VAA intended for the Factory (e.g., to create a new pool).
+    /// Verifies the emitter is a known/trusted remote factory address.
+    public fun process_vaa_for_factory<CoinTypeA, CoinTypeB>(
+        vaa_bytes: vector<u8>,
+        factory: &Factory,         // Pass the shared Factory object
+        wormhole_state: &WormholeState,
+        clock: &Clock,
+        // TODO: Define expected remote factory address/chain based on CoinTypeA/B or other logic
+        // This likely needs configuration stored within the Factory object itself.
+        expected_remote_chain_id: u16,
+        expected_remote_factory_address: vector<u8>,
+        ctx: &mut TxContext
+    ) {
+        // 1. Parse and Verify VAA
+        let parsed_vaa_option: Option<ParsedVAA> = parse_and_verify_vaa(
+            wormhole_state, clock, vaa_bytes
+        );
+        assert!(option::is_some(&parsed_vaa_option), EVAAConsumedOrInvalid);
+        let vaa = option::destroy_some(parsed_vaa_option);
+
+        // 2. Check Emitter matches the *expected* remote factory address and chain
+        assert!(vaa.emitter_chain_id == expected_remote_chain_id &&
+                vaa.emitter_address == expected_remote_factory_address,
+                EFactoryMismatch);
+
+        // 3. Consume Message
+        consume_message(wormhole_state, vaa, ctx); // Pass the owned ParsedVAA
+
+        // 4. Parse Payload
+        let payload = vaa.payload;
+        let payload_len = vector::length(&payload);
+        assert!(payload_len > 0, EInvalidVAAPayload);
+        let operation_type = *vector::borrow(&payload, 0);
+
+        // 5. Ensure operation is CREATE_POOL
+        assert!(operation_type == OPERATION_CREATE_POOL, EInvalidOperationType);
+
+        // TODO: Extract necessary parameters for pool creation from the payload.
+        // Example: If payload contains token type info or initial settings.
+        // let token_a_info = ... extract from payload ...
+        // let token_b_info = ... extract from payload ...
+
+        // 6. Call Factory function
+        // Note: This currently aborts inside factory::create_pool_from_vaa
+        // until the initial coin/TreasuryCap handling is resolved.
+        factory::create_pool_from_vaa<CoinTypeA, CoinTypeB>(
+            factory,
+            // Pass extracted VAA/payload parameters needed by the factory function
+            // source_chain_id: vaa.emitter_chain_id,
+            // source_factory_address: vaa.emitter_address,
+            ctx
+        );
+
+        // TODO: Emit VAAProcessed event for factory operation?
+        // emit_vaa_processed(factory_id_placeholder, operation_type, &vaa, ctx);
+    }
+
     // TODO: Implement function to process VAAs for creating *new* mirror pools.
     // This function would likely not take a `Pool` object as input but rather interact
     // with a factory or registry to create a new pool based on VAA data.
     // It would need separate VAA verification logic if the emitter is a known factory address.
+    // --> This is now handled by `process_vaa_for_factory`
 }

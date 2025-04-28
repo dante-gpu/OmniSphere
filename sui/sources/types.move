@@ -32,6 +32,7 @@ module omnisphere_sui::types {
     const OPERATION_ADD_LIQUIDITY: u8 = 1;
     const OPERATION_REMOVE_LIQUIDITY: u8 = 2;
     const OPERATION_LINK_POOL: u8 = 3; // Linking operation code eklendi (isteğe bağlı)
+    const OPERATION_CREATE_POOL: u8 = 4; // Creating a new pool/mirror pool
     // Add more operation types as needed (e.g., Swap)
 
     /// Represents the type of bridge operation being performed or requested.
