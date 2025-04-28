@@ -21,6 +21,9 @@ module omnisphere_sui::bridge_interface {
         OPERATION_ADD_LIQUIDITY,
         OPERATION_REMOVE_LIQUIDITY
     };
+    use omnisphere_sui::events::{ // Import specific event emitters
+        emit_liquidity_removed, emit_vaa_processed
+    };
     // use omnisphere_sui::events; // Import if emitting events from here
 
     // === Constants ===
@@ -107,6 +110,8 @@ module omnisphere_sui::bridge_interface {
             // This function needs `public(friend)` visibility in liquidity_pool.move
             liquidity_pool::add_liquidity_from_remote(pool, amount_a, amount_b, ctx);
             // TODO: Emit AddLiquidityProcessed event?
+            // Emit VAAProcessed event
+            emit_vaa_processed(pool_id, operation_type, &vaa, ctx);
 
         } else if (operation_type == OPERATION_REMOVE_LIQUIDITY) {
             // Expected Payload: [op_code(1)] [amount_a(8)] [amount_b(8)] [recipient_on_sui(32)] = 49 bytes total
@@ -129,6 +134,9 @@ module omnisphere_sui::bridge_interface {
             transfer::public_transfer(coin_b_removed, recipient_on_sui);
 
             // TODO: Emit RemoteLiquidityFulfilled event?
+            // Emit LiquidityRemoved and VAAProcessed events
+            emit_liquidity_removed(pool_id, recipient_on_sui, amount_a, amount_b, &vaa, ctx);
+            emit_vaa_processed(pool_id, operation_type, &vaa, ctx);
 
         } else {
             // Abort if the operation type is unknown or unsupported
@@ -136,6 +144,7 @@ module omnisphere_sui::bridge_interface {
         };
 
         // TODO: Emit a generic VAAProcessed event including sequence number, etc.?
+        // Done above within specific operation blocks
     }
 
     // TODO: Implement function to process VAAs for creating *new* mirror pools.

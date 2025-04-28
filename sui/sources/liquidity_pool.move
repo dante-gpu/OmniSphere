@@ -22,7 +22,10 @@ module omnisphere_sui::liquidity_pool {
     // === Other Modules ===
     use omnisphere_sui::types::{Self, PoolStatus, new_active_status, is_active as pool_is_active,
                                OPERATION_ADD_LIQUIDITY, OPERATION_REMOVE_LIQUIDITY};
-    use omnisphere_sui::events;
+    use omnisphere_sui::events::{
+        emit_pool_created, emit_liquidity_added, emit_pool_linked,
+        emit_liquidity_removal_requested
+    };
 
     // --- Constants ---
     const ENotAdmin: u64 = 1;
@@ -232,6 +235,7 @@ module omnisphere_sui::liquidity_pool {
         let coin_b = coin::take(&mut pool.reserve_b, amount_b_to_remove, _ctx);
 
         // TODO: Emit LiquidityRemoved event if necessary
+        // Event emission moved to bridge_interface after successful transfer
 
         (coin_a, coin_b)
     }
@@ -281,6 +285,17 @@ module omnisphere_sui::liquidity_pool {
 
         // TODO: Emit LiquidityRemovalRequested event
         // events::emit_liquidity_removal_requested(...);
+        // Emit the event
+        emit_liquidity_removal_requested(
+            object::uid_to_inner(&pool.id),
+            tx_context::sender(ctx),
+            amount_a_to_remove,
+            amount_b_to_remove,
+            pool.linked_chain_id,
+            recipient_on_remote,
+            // TODO: Pass Wormhole sequence number if publish_message returns it
+            ctx
+        );
     }
 
     /// Links the pool to a remote pool and publishes a Wormhole message. (REAL IMPLEMENTATION)
