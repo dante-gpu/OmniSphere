@@ -6,9 +6,19 @@ import { Program, AnchorProvider, BN } from '@project-serum/anchor';
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from '@solana/spl-token'; // Import ASSOCIATED_TOKEN_PROGRAM_ID
 import { sha256 } from 'js-sha256';
 import { Buffer } from 'buffer';
-import { trackSolanaToWormhole } from '../lib/wormholePoolBridge.ts';
+// import { trackSolanaToWormhole } from '../lib/wormholePoolBridge.ts'; // Removed old tracking function
+import { getWormholeMessageId } from '../lib/wormholePoolBridge.ts'; // Import helper
 import { SOLANA_DEVNET_PROGRAM_ID } from '../lib/constants.ts';
 import { utils } from 'ethers'; // For parsing amounts
+import {
+  Wormhole,
+  WormholeMessageId,
+  Chain,
+  Network,
+} from '@wormhole-foundation/sdk'; // Import SDK components
+import { SolanaPlatform } from '@wormhole-foundation/sdk-solana'; // Import Solana platform
+import { SuiPlatform } from '@wormhole-foundation/sdk-sui'; // Import Sui platform (needed for Wormhole init)
+
 
 // Import the IDL JSON correctly using Vite's JSON import capability
 import idlJson from '../../programs/liquidity_pool/target/idl/liquidity_pool_program.json?raw'; // Adjust path as needed, use ?raw
@@ -201,29 +211,51 @@ export function useCreateSolanaPool() {
         toast.success(`Solana pool created & initial liquidity added! Signature: ${result.txSignature.substring(0, 10)}...`);
         console.log("Solana Pool Creation & Initial Liquidity Submitted:", result);
 
-        // Initiate Wormhole bridge tracking using the add_liquidity signature
-        toast.loading('Tracking Wormhole message...', { id: 'wormhole-track-sol' });
-        const bridgeResult = await trackSolanaToWormhole(
-            connection, // Use connection from useConnection hook
-            result.txSignature,
-            SOLANA_PROGRAM_ID.toBase58() // Pass program ID as string
-        );
+        // Use new SDK to find Wormhole message and fetch VAA
+        toast.loading('Tracking Wormhole message using new SDK...', { id: 'wormhole-track-sol-sdk' });
 
-        if (bridgeResult.error) {
-          toast.error(`Wormhole tracking failed: ${bridgeResult.error}`, { id: 'wormhole-track-sol' });
-          console.error("Wormhole Tracking Error:", bridgeResult.error);
-        } else if (bridgeResult.wormholeMessageInfo) {
-          const { sequence, emitterAddress } = bridgeResult.wormholeMessageInfo;
-          const emitterStr = emitterAddress.toString(); // Convert emitter address to string for display.
-          // Provide a link to the transaction on Wormholescan for easy verification.
-          const explorerLink = `https://wormholescan.io/#/tx/${result.txSignature}?network=TESTNET&chain=solana`;
-          const successMsg = `Wormhole message found! Seq: ${sequence}. Emitter: ${emitterStr.substring(0, 6)}... View on Wormholescan: ${explorerLink}`;
-          toast.success(successMsg, { id: 'wormhole-track-sol', duration: 8000 });
-          console.log("Wormhole Tracking Success:", bridgeResult);
-          // TODO: Decide what to do with the VAA bytes (e.g., store them, pass to another process).
-        } else {
-           // This case might occur if tracking finishes but no message is found (e.g., network issues, delay).
-           toast.error('Wormhole tracking completed but no message info found.', { id: 'wormhole-track-sol' });
+        try {
+            const network: Network = "Testnet"; // Assuming Testnet
+            const chain: Chain = "Solana";
+
+            // Initialize Wormhole SDK
+            const wh = new Wormhole(network, [SolanaPlatform, SuiPlatform]); // Include platforms
+            const solanaContext = wh.getChain(chain);
+            // solanaContext.rpc = connection; // Removed direct assignment - SDK might handle RPC internally or need different config
+
+            // Parse the transaction to find emitted Wormhole messages
+            // The SDK might use its internally configured RPC or require one to be passed here if not set globally.
+            // Let's assume for now parseTransaction can work without direct rpc assignment on context.
+            const messageIds: WormholeMessageId[] = await solanaContext.parseTransaction(result.txSignature);
+
+            if (!messageIds || messageIds.length === 0) {
+                throw new Error("No Wormhole messages found in the transaction.");
+            }
+
+            // Assuming the first message is the relevant one
+            const messageId = messageIds[0];
+            console.log("Found Wormhole Message ID:", messageId);
+
+            // Fetch the VAA bytes
+            console.log("Fetching VAA bytes...");
+            const vaaBytes = await wh.getVaaBytes(messageId);
+
+            if (!vaaBytes) {
+                throw new Error("Could not fetch VAA bytes for the message.");
+            }
+
+            console.log("Successfully fetched VAA bytes.");
+            const emitterStr = messageId.emitter.toString();
+            // Provide a link to the message on Wormholescan
+            const explorerLink = `https://testnet.wormholescan.io/#/tx/${result.txSignature}?details=messages`; // Link to messages tab
+            const successMsg = `Wormhole message found! Seq: ${messageId.sequence}. Emitter: ${emitterStr.substring(0, 6)}... VAA Bytes fetched. View on Wormholescan: ${explorerLink}`;
+            toast.success(successMsg, { id: 'wormhole-track-sol-sdk', duration: 10000 });
+            // TODO: Decide what to do with the vaaBytes (e.g., store them, pass to another process).
+
+        } catch (error: any) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            toast.error(`Wormhole tracking failed: ${errorMsg}`, { id: 'wormhole-track-sol-sdk' });
+            console.error("Wormhole SDK Tracking Error:", error);
         }
       },
       onError: (error: Error) => {

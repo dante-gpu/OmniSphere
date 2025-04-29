@@ -13,6 +13,7 @@ interface DropdownProps {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  disabled?: boolean;
 }
 
 export const Dropdown: React.FC<DropdownProps> = ({
@@ -20,7 +21,8 @@ export const Dropdown: React.FC<DropdownProps> = ({
   value,
   onChange,
   placeholder = 'Select an option',
-  className = ''
+  className = '',
+  disabled
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -43,6 +45,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="w-full flex items-center justify-between p-3 rounded-lg border hover:border-primary transition-colors"
+        disabled={disabled}
       >
         <div className="flex items-center gap-2">
           {selectedItem?.icon}
@@ -59,9 +62,9 @@ export const Dropdown: React.FC<DropdownProps> = ({
       {/* Show dropdown menu only when open */}
       {isOpen && (
         <div className="absolute z-50 w-full mt-2 bg-white rounded-lg border shadow-lg py-1 animate-fade-in">
-          {items.map((item) => (
+          {items.map((item, index) => (
             <button
-              key={item.value}
+              key={`${item.value}-${index}`}
               onClick={() => {
                 onChange(item.value);
                 setIsOpen(false);

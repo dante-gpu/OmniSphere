@@ -86,7 +86,7 @@ const Footer = () => {
         {/* Copyright notice */}
         <div className="mt-8 pt-8 border-t border-neutral-200">
           <p className="text-neutral-500 text-sm text-center">
-            © {new Date().getFullYear()} OmniSphere Protocol by Baturalp. All rights reserved.
+            © {new Date().getFullYear()} OmniSphere Protocol by @virjilakrum. All rights reserved.
           </p>
         </div>
       </div>
