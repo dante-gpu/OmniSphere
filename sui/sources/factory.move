@@ -108,19 +108,12 @@ module omnisphere_sui::factory {
         let coin_a_initial: Coin<CoinTypeA> = coin::mint(treasury_cap_a, 0, ctx);
         let coin_b_initial: Coin<CoinTypeB> = coin::mint(treasury_cap_b, 0, ctx);
 
-        // 3. Create the pool (returns the Pool object itself, as it's not shared yet)
-        // Need to modify create_pool_internal or use a different approach if it shares immediately.
-        // Assuming create_pool_internal is modified or we have a way to get the Pool object.
-        // Let's modify the signature of this function to *return* the pool temporarily.
-        // Ideally, create_pool_internal wouldn't automatically share.
-
-        // *** TEMPORARY: Assume create_pool_internal is adapted NOT to share immediately ***
-        // This might require making create_pool public(friend) and calling it differently
-        // OR adding a new internal function.
-        // For now, let's proceed assuming we get the pool object back.
-        let mut new_pool = create_pool_placeholder_no_share<CoinTypeA, CoinTypeB>(ctx);
-        // *** END TEMPORARY ***
-
+        // 3. Create the pool using the internal (friend) function
+        let mut new_pool = create_pool_internal<CoinTypeA, CoinTypeB>(
+            coin_a_initial,
+            coin_b_initial,
+            ctx
+        );
 
         // 4. Link the newly created pool back to the source address
         // The source_link_address came from the VAA payload.
@@ -164,6 +157,7 @@ module omnisphere_sui::factory {
 
     /// Placeholder function to represent pool creation without immediate sharing.
     /// Replace with actual logic based on `liquidity_pool::create_pool` refactoring.
+    /*
     fun create_pool_placeholder_no_share<CoinTypeA, CoinTypeB>(
         ctx: &mut TxContext
     ): Pool<CoinTypeA, CoinTypeB> {
@@ -180,5 +174,6 @@ module omnisphere_sui::factory {
         // using TreasuryCaps passed into create_pool_from_vaa and potentially modifying
         // how liquidity_pool::create_pool works or adding a new internal creator function.
     }
+    */
 
 } 

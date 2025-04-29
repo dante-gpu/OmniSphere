@@ -108,13 +108,14 @@ module omnisphere_sui::liquidity_pool {
 
     // --- Public Functions ---
 
-    /// Creates a new liquidity pool and shares it.
-    /// Allows creation with zero initial balances (e.g., for VAA-triggered creation).
-    public fun create_pool<CoinTypeA, CoinTypeB>(
+    /// Creates a new liquidity pool. Called internally or by friend modules (like factory).
+    /// Allows creation with zero initial balances.
+    /// Does NOT share the pool object; the caller is responsible for sharing/transfer.
+    public(friend) fun create_pool<CoinTypeA, CoinTypeB>(
         coin_a: Coin<CoinTypeA>,
         coin_b: Coin<CoinTypeB>,
         ctx: &mut TxContext
-    ) {
+    ): Pool<CoinTypeA, CoinTypeB> { // Return the pool
         let creator = tx_context::sender(ctx);
 
         // Allow zero value coins, create balances accordingly
@@ -145,7 +146,7 @@ module omnisphere_sui::liquidity_pool {
             initial_liquidity_b, // Will be 0 if created empty
             ctx
         );
-        transfer::share_object(pool);
+        pool // Return the created pool object
     }
 
     /// Adds liquidity to an existing pool.
@@ -182,36 +183,43 @@ module omnisphere_sui::liquidity_pool {
         pool: &mut Pool<CoinTypeA, CoinTypeB>,
         amount_a: u64,
         amount_b: u64,
-        // TODO: Pass TreasuryCap<CoinTypeA> and TreasuryCap<CoinTypeB> if needed for minting wrapped assets.
-        // Alternatively, the bridge/pool might hold these capabilities.
+        // Assume these are passed by the caller (bridge_interface),
+        // which must have access to them (e.g., stored capabilities).
+        // Only needed if CoinTypeA/CoinTypeB are wrapped assets requiring minting.
+        treasury_cap_a: &TreasuryCap<CoinTypeA>,
+        treasury_cap_b: &TreasuryCap<CoinTypeB>,
         ctx: &mut TxContext // Context is needed for events
     ) {
         assert!(pool_is_active(&pool.status), EPoolNotActive);
 
-        // --- Real Token Handling (Placeholder) ---
-        // 1. Determine if CoinTypeA/CoinTypeB are wrapped assets requiring minting.
-        // 2. If minting is required, use the appropriate TreasuryCap to mint Coins.
-        //    Example (requires TreasuryCap passed or held by contract):
-        //    let coin_a_minted: Coin<CoinTypeA> = coin::mint_and_transfer(treasury_cap_a, amount_a, recipient, ctx);
-        //    let coin_b_minted: Coin<CoinTypeB> = coin::mint_and_transfer(treasury_cap_b, amount_b, recipient, ctx);
-        //    let balance_a = coin::into_balance(coin_a_minted);
-        //    let balance_b = coin::into_balance(coin_b_minted);
-        // 3. If tokens are unlocked from escrow (another pattern), implement that logic.
+        // --- Real Token Handling --- 
+        // Assumes CoinTypeA and CoinTypeB might be wrapped assets needing minting.
+        // If they are native assets, this logic would differ (e.g., transfer from escrow).
 
-        // --- Current Simplified Implementation (Using balance::increase_supply) ---
-        // WARNING: This is NOT production-ready without proper token handling.
-        // It assumes the balances can be artificially inflated for demonstration.
+        // 1. Mint the required amounts using the provided TreasuryCaps
+        // Note: This assumes the caller verifies these amounts are correct based on the VAA.
+        let coin_a_minted: Coin<CoinTypeA> = coin::mint(treasury_cap_a, amount_a, ctx);
+        let coin_b_minted: Coin<CoinTypeB> = coin::mint(treasury_cap_b, amount_b, ctx);
+
+        // 2. Convert minted coins into balances
+        let balance_a_to_add = coin::into_balance(coin_a_minted);
+        let balance_b_to_add = coin::into_balance(coin_b_minted);
+
+        // 3. Join the new balances to the pool reserves
+        balance::join(&mut pool.reserve_a, balance_a_to_add);
+        balance::join(&mut pool.reserve_b, balance_b_to_add);
+
+        // --- Remove Placeholder --- 
+        /* 
         balance::increase_supply(&mut pool.reserve_a, amount_a); // Needs supply capability held by the Balance itself
         balance::increase_supply(&mut pool.reserve_b, amount_b); // Needs supply capability held by the Balance itself
-        // --- End Simplified Implementation ---
+        */
 
-        // Join the actual balances (minted/unlocked) to the pool
-        // balance::join(&mut pool.reserve_a, balance_a);
-        // balance::join(&mut pool.reserve_b, balance_b);
-
-        // Emit event (Consider adding VAA details like sequence number)
+        // Emit event
         events::emit_liquidity_added(
             object::uid_to_inner(&pool.id),
+            // TODO: Determine appropriate address for 'provider'.
+            // Should it be the bridge contract address? A parsed VAA field?
             @0x0, // Placeholder: Use a designated bridge address or parse from VAA if needed
             amount_a,
             amount_b,

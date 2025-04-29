@@ -72,6 +72,9 @@ module omnisphere_sui::bridge_interface {
     public fun process_vaa_for_pool<CoinTypeA, CoinTypeB>(
         vaa_bytes: vector<u8>,
         pool: &mut Pool<CoinTypeA, CoinTypeB>,
+        // TreasuryCaps needed if processing an ADD_LIQUIDITY operation for wrapped assets
+        treasury_cap_a: &TreasuryCap<CoinTypeA>,
+        treasury_cap_b: &TreasuryCap<CoinTypeB>,
         wormhole_state: &WormholeState,
         clock: &Clock, // Current time for VAA verification
         ctx: &mut TxContext
@@ -111,7 +114,14 @@ module omnisphere_sui::bridge_interface {
 
             // Call the corresponding function in the liquidity pool module
             // This function needs `public(friend)` visibility in liquidity_pool.move
-            liquidity_pool::add_liquidity_from_remote(pool, amount_a, amount_b, ctx);
+            liquidity_pool::add_liquidity_from_remote(
+                pool,
+                amount_a,
+                amount_b,
+                treasury_cap_a, // Pass the cap
+                treasury_cap_b, // Pass the cap
+                ctx
+            );
             // TODO: Emit AddLiquidityProcessed event?
             // Emit VAAProcessed event
             emit_vaa_processed(pool_id, operation_type, &vaa, ctx);
