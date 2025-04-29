@@ -158,8 +158,9 @@ module omnisphere_sui::bridge_interface {
         // Required TreasuryCaps to initialize the pool with zero coins
         treasury_cap_a: &TreasuryCap<CoinTypeA>,
         treasury_cap_b: &TreasuryCap<CoinTypeB>,
-        wormhole_state: &WormholeState,
+        wormhole_state: &WormholeState, // Needed for linking back
         clock: &Clock,
+        link_message_fee: Coin<SUI>, // Needed for linking back
         // TODO: Define expected remote factory address/chain based on CoinTypeA/B or other logic
         // This likely needs configuration stored within the Factory object itself.
         expected_remote_chain_id: u16,
@@ -191,25 +192,28 @@ module omnisphere_sui::bridge_interface {
         assert!(operation_type == OPERATION_CREATE_POOL, EInvalidOperationType);
 
         // TODO: Extract necessary parameters for pool creation from the payload.
-        // Example: If payload contains token type info or initial settings.
-        // let token_a_info = ... extract from payload ...
-        // let token_b_info = ... extract from payload ...
+        // Assuming Payload: [op_code(1)] [source_link_address(32)] = 33 bytes
+        assert!(payload_len == 33, EInvalidVAAPayload);
+        let source_link_address = vector::slice(&payload, 1, 33);
 
-        // 6. Call Factory function
-        // Note: This currently aborts inside factory::create_pool_from_vaa
-        // until the initial coin/TreasuryCap handling is resolved.
-        factory::create_pool_from_vaa<CoinTypeA, CoinTypeB>(
+        // 6. Call Factory function to create and link the pool
+        let new_pool = factory::create_pool_from_vaa<CoinTypeA, CoinTypeB>(
             factory,
             treasury_cap_a, // Pass the cap
             treasury_cap_b, // Pass the cap
-            // Pass extracted VAA/payload parameters needed by the factory function
-            vaa.emitter_chain_id,      // Example: pass source chain from VAA
-            vaa.emitter_address,       // Example: pass source address from VAA
+            vaa.emitter_chain_id,      // Source chain from VAA
+            vaa.emitter_address,       // Source factory address from VAA
+            source_link_address,       // Source pool address from Payload
+            wormhole_state,            // Wormhole state for linking
+            link_message_fee,          // Fee for linking message
             ctx
         );
 
+        // 7. Share the newly created and linked pool
+        transfer::share_object(new_pool);
+
         // TODO: Emit VAAProcessed event for factory operation?
-        // emit_vaa_processed(factory_id_placeholder, operation_type, &vaa, ctx);
+        // emit_vaa_processed(object::id_from_uid(&factory.id), operation_type, &vaa, ctx);
     }
 
     // TODO: Implement function to process VAAs for creating *new* mirror pools.

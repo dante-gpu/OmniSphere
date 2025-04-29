@@ -65,6 +65,15 @@ module omnisphere_sui::events {
         timestamp_ms: u64,
     }
 
+    /// Emitted when a new pool is created via a VAA processed by the factory.
+    struct PoolCreatedFromVAA has copy, drop {
+        new_pool_id: ID,          // ID of the pool created on Sui
+        source_chain_id: u16,
+        source_factory_address: vector<u8>,
+        source_link_address: vector<u8>, // Address on source chain pool was linked back to
+        timestamp_ms: u64,
+    }
+
     /// Generic event emitted after a VAA has been successfully processed.
     struct VAAProcessed has copy, drop {
         pool_id: ID, // Pool the VAA was processed for
@@ -152,6 +161,23 @@ module omnisphere_sui::events {
             amount_b_removed,
             source_chain_id: vaa.emitter_chain_id,
             vaa_sequence: vaa.sequence,
+            timestamp_ms: tx_context::epoch_timestamp_ms(ctx),
+        });
+    }
+
+    /// Emits the PoolCreatedFromVAA event.
+    public fun emit_pool_created_from_vaa(
+        new_pool_id: ID,
+        source_chain_id: u16,
+        source_factory_address: vector<u8>,
+        source_link_address: vector<u8>,
+        ctx: &TxContext
+    ) {
+        event::emit(PoolCreatedFromVAA {
+            new_pool_id,
+            source_chain_id,
+            source_factory_address,
+            source_link_address,
             timestamp_ms: tx_context::epoch_timestamp_ms(ctx),
         });
     }
