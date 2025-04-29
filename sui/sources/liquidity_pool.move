@@ -93,17 +93,9 @@ module omnisphere_sui::liquidity_pool {
 
     /// Converts address to vector<u8> (assuming 32 bytes).
     fun address_to_bytes(addr: address): vector<u8> {
-        // Placeholder: Replace with actual Sui SDK function if available
-        // This is a simplification; actual conversion might be different.
-        let bytes = vector::empty<u8>();
-        let i = 0;
-        while (i < 32) {
-            // Fill with zeros as a placeholder
-            vector::push_back(&mut bytes, 0u8);
-            i = i + 1;
-        };
-        // Ideally, use something like: sui::address::to_bytes(addr)
-        bytes
+        // Use Sui framework function if available and public
+        // Placeholder implementation if no direct function exists
+        sui::address::to_bytes(addr)
     }
 
     // --- Public Functions ---

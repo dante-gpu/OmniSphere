@@ -8,6 +8,7 @@ module omnisphere_sui::factory {
     use sui::coin::{Self, Coin, TreasuryCap};
     use sui::package; // To get publisher object
     use sui::table::{Self, Table}; // For storing trusted factories
+    use std::type_name::{TypeName}; // For TreasuryCap table key
 
     // OmniSphere Imports
     use omnisphere_sui::liquidity_pool::{Self, Pool, create_pool as create_pool_internal, link_and_publish};
@@ -23,6 +24,8 @@ module omnisphere_sui::factory {
     const ESourceFactoryNotTrusted: u64 = 201;
     const ENotFactoryAdmin: u64 = 202;
     const EInvalidPayloadForLinking: u64 = 203;
+    const ECapNotFound: u64 = 204;
+    const ECapIncorrectType: u64 = 205;
 
     // === Structs ===
 
@@ -32,6 +35,8 @@ module omnisphere_sui::factory {
         admin: address,
         /// Table mapping `remote_chain_id` to `remote_factory_address` (vector<u8>)
         trusted_factories: Table<u16, vector<u8>>,
+        /// Table mapping `TypeName` of a coin to the `ID` of its `TreasuryCap` object.
+        treasury_caps: Table<TypeName, ID>,
     }
 
     /// Capability required to publish the factory module.
@@ -48,6 +53,8 @@ module omnisphere_sui::factory {
             admin: tx_context::sender(ctx),
             // Initialize empty table for trusted factories
             trusted_factories: table::new<u16, vector<u8>>(ctx),
+            // Initialize empty table for TreasuryCaps
+            treasury_caps: table::new<TypeName, ID>(ctx),
         };
 
         // Share the factory object so it can be used by the bridge interface
@@ -69,6 +76,33 @@ module omnisphere_sui::factory {
     ) {
         assert!(tx_context::sender(ctx) == factory.admin, ENotFactoryAdmin);
         table::add(&mut factory.trusted_factories, remote_chain_id, remote_factory_address);
+    }
+
+    /// Registers or updates the TreasuryCap ID for a given coin type.
+    /// The TreasuryCap object itself must be passed to verify ownership/type.
+    /// Only callable by the factory admin.
+    public fun set_treasury_cap<CoinType>(
+        factory: &mut Factory,
+        treasury_cap: &TreasuryCap<CoinType>, // Pass the actual Cap object
+        ctx: &TxContext
+    ) {
+        assert!(tx_context::sender(ctx) == factory.admin, ENotFactoryAdmin);
+        let coin_type_name = std::type_name::get<CoinType>();
+        let cap_id = object::id(treasury_cap);
+        table::add(&mut factory.treasury_caps, coin_type_name, cap_id);
+        // Note: This only stores the ID. The caller of VAA processing functions
+        // will still need to fetch the actual Cap object using this ID and pass it.
+    }
+
+    /// Removes the TreasuryCap registration for a given coin type.
+    /// Only callable by the factory admin.
+    public fun remove_treasury_cap<CoinType>(
+        factory: &mut Factory,
+        ctx: &TxContext
+    ) {
+        assert!(tx_context::sender(ctx) == factory.admin, ENotFactoryAdmin);
+        let coin_type_name = std::type_name::get<CoinType>();
+        table::remove(&mut factory.treasury_caps, coin_type_name);
     }
 
     /// Removes the trusted factory address for a given remote chain ID.
