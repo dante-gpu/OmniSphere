@@ -9,7 +9,61 @@ import { Buffer } from 'buffer';
 import bs58 from 'bs58';
 // CONFIG import edilmeli
 import { CONFIG } from '@wormhole-foundation/sdk';
+import { ChainContext } from '@wormhole-foundation/sdk';
+// Adjust path relative to the current file's location inside wormholePlatformExtensions
+import { SuiSignerAdapter } from '../wormholeSignerAdapters';
 
+// LinkPoolResult ve WormholeMessageId tiplerini tanımla (veya ortak bir yerden import et)
+// Ensure these types are defined only once, possibly in a shared types file
+interface WormholeMessageId {
+  chain: Chain;
+  emitter: string;
+  sequence: bigint;
+}
+interface LinkPoolResult {
+  txIds: string[];
+  wormholeMessages: WormholeMessageId[];
+}
+
+// Yer tutucu Sui linkPools fonksiyonu (EXPORT EDİLECEK)
+export async function suiLinkPoolsPlaceholder(
+  chainContext: ChainContext<Network, "Sui">, // Pass context for potential future use
+  localPoolObjectId: string, // Sui object ID
+  remotePoolAddress: string,
+  remoteChain: Chain,
+  signer: SuiSignerAdapter // Type hint
+): Promise<LinkPoolResult> {
+  console.warn(
+    `---> Sui: Placeholder linkPoolsPlaceholder called <---
+    Local Pool Object ID: ${localPoolObjectId}
+    Remote Pool: ${remotePoolAddress}
+    Remote Chain: ${remoteChain}
+    Signer Address: ${signer.address()}
+    NOTE: This is a placeholder and does NOT perform a real transaction!`
+  );
+
+  const placeholderTxId = `sui_link_placeholder_${Date.now()}`;
+  return {
+    txIds: [placeholderTxId],
+    wormholeMessages: [],
+  };
+}
+
+// Fonksiyonu ChainContext prototipine EKLEME KODUNU KALDIR
+/*
+if (typeof ChainContext !== 'undefined' && ChainContext.prototype) {
+  if (ChainContext.prototype.hasOwnProperty('linkPools')) {
+    console.warn("Sui: linkPools is already defined on ChainContext prototype. Overwriting.");
+  }
+  // @ts-ignore
+  ChainContext.prototype.linkPools = suiLinkPoolsPlaceholder; // Use new name
+  console.log("Sui platform extension: Placeholder linkPools method registered.");
+} else {
+  console.error("Could not find ChainContext or its prototype! Failed to add Sui linkPools.");
+}
+*/
+
+console.log("Sui platform extension: suiLinkPoolsPlaceholder defined and exported.");
 
 // Prototip yerine 'as any' kullan
 (SuiPlatform.prototype as any).linkPools = async function(
