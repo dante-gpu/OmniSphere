@@ -23,6 +23,47 @@ import {
   } from './wormholeHelpers';
   import { Buffer } from 'buffer';
   import bs58 from 'bs58';
+  import { ChainContext } from '@wormhole-foundation/sdk';
+  import { SolanaSignerAdapter } from '../wormholeSignerAdapters';
+  // import { Chain, Network, toChainId, toNative } from '@wormhole-foundation/sdk-base'; // Removed duplicate/problematic imports
+  // import { nativeToUint8Array } from '@wormhole-foundation/sdk-definitions'; // Removed problematic import
+
+  // LinkPoolResult ve WormholeMessageId tiplerini tanımla (veya ortak bir yerden import et)
+  interface WormholeMessageId {
+    chain: Chain;
+    emitter: string;
+    sequence: bigint;
+  }
+  interface LinkPoolResult {
+    txIds: string[];
+    wormholeMessages: WormholeMessageId[];
+  }
+
+  // Yer tutucu Solana linkPools fonksiyonu (EXPORT EDİLECEK)
+  export async function solanaLinkPoolsPlaceholder(
+    chainContext: ChainContext<Network, "Solana">, // Pass context
+    localPoolAddress: string,
+    remotePoolAddress: string,
+    remoteChain: Chain,
+    signer: SolanaSignerAdapter // Type hint
+  ): Promise<LinkPoolResult> {
+    console.warn(
+      `---> Solana: Placeholder solanaLinkPoolsPlaceholder called <---
+      Local Pool: ${localPoolAddress}
+      Remote Pool: ${remotePoolAddress}
+      Remote Chain: ${remoteChain}
+      Signer Address: ${signer.address()}
+      NOTE: This is a placeholder and does NOT perform a real transaction!`
+    );
+
+    const placeholderTxId = `solana_link_placeholder_${Date.now()}`;
+    return {
+      txIds: [placeholderTxId],
+      wormholeMessages: [],
+    };
+  }
+
+  console.log("Solana platform extension: solanaLinkPoolsPlaceholder defined and exported.");
 
   // Prototip yerine 'as any' kullan
   (SolanaPlatform.prototype as any).linkPools = async function(

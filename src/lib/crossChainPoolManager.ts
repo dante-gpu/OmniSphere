@@ -229,161 +229,169 @@ import {
     config: CrossChainPoolConfig,
     signers: { [K in SupportedChain]?: any }
   ): Promise<PoolCreationReceipt> {
-
-    const signerA = signers[config.chainA as SupportedChain];
-    const signerB = signers[config.chainB as SupportedChain];
-    if (!signerA || !signerB) {
-      throw new Error(`Signers for both chains (${config.chainA}, ${config.chainB}) are required.`);
-    }
+    const network: Network = 'Testnet'; // veya config'den al
+    const wormhole = new Wormhole(network, [SolanaPlatform, SuiPlatform]);
 
     try {
-      const [chainAReceipt, chainBReceipt] = await Promise.all([
-        createPoolOnChain(config.chainA as SupportedChain, config, signerA),
-        createPoolOnChain(config.chainB as SupportedChain, config, signerB)
-      ]);
+      // Adım 1 & 2: Her iki zincirde de havuzları oluştur
+      console.log(`Creating pool on ${config.chainA}...`);
+      const poolAResult = await createPoolOnChain(config.chainA, config, signers[config.chainA]);
+      console.log(`${config.chainA} pool created:`, poolAResult);
 
-      console.log(`Pool created on ${config.chainA}: ${chainAReceipt.poolId}`);
-      console.log(`Pool created on ${config.chainB}: ${chainBReceipt.poolId}`);
+      console.log(`Creating pool on ${config.chainB}...`);
+      const poolBResult = await createPoolOnChain(config.chainB, config, signers[config.chainB]);
+      console.log(`${config.chainB} pool created:`, poolBResult);
 
-      const linkReceipt = await linkPools(
-        chainAReceipt.poolId,
-        chainBReceipt.poolId,
-        config,
-        signers
-      );
+      // Adım 3: Havuzları birbirine bağla (GÜNCELLENMİŞ linkPools çağrısı)
+      console.log(`Linking pools ${poolAResult.poolId} and ${poolBResult.poolId}...`);
+      const linkReceipt = await linkPools(poolAResult, poolBResult, config, signers, wormhole);
 
-      console.log(`Pools linked. Link Txs: ${linkReceipt.txIds.join(', ')}`);
+      return linkReceipt; // linkPools zaten PoolCreationReceipt formatında dönüyor
 
-      const finalPoolId = `${config.chainA}-${chainAReceipt.poolId}/${config.chainB}-${chainBReceipt.poolId}`;
-
-      return {
-        poolId: finalPoolId,
-        chain: config.chainA,
-        txIds: [
-          ...chainAReceipt.txIds,
-          ...chainBReceipt.txIds,
-          ...linkReceipt.txIds
-        ],
-        wormholeMessages: [
-          ...chainAReceipt.wormholeMessages,
-          ...chainBReceipt.wormholeMessages,
-          ...linkReceipt.wormholeMessages
-        ]
-      };
-    } catch (error: any) {
-      console.error('Cross-chain pool creation failed:', error);
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to create cross-chain pool: ${message}`);
+    } catch (error) {
+      console.error("Cross-chain pool creation failed:", error);
+      // Hata mesajını daha spesifik hale getir
+      throw new Error(`Failed to create cross-chain pool: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
-  async function createPoolOnChain(chain: Chain, config: CrossChainPoolConfig, signer: any): Promise<ChainPoolResult> {
-    // Zincire özel implementasyonları ekle
-    if (chain === "Solana") {
-      // Solana'da havuz oluşturma implementasyonu
-      return await createSolanaPool(config, signer);
-    } else if (chain === "Sui") {
-      // Sui'de havuz oluşturma implementasyonu
-      return await createSuiPool(config, signer);
+  async function createPoolOnChain(chain: Chain, config: CrossChainPoolConfig, signer: any): Promise<any> {
+    // Bu fonksiyonun içeriği aynı kalır
+    if (chain === 'Solana') {
+      return createSolanaPool(config, signer);
+    } else if (chain === 'Sui') {
+      return createSuiPool(config, signer);
     } else {
-      throw new Error(`createPool method not implemented for chain ${chain}`);
+      throw new Error(`Pool creation not implemented for chain: ${chain}`);
     }
   }
 
-  async function createSolanaPool(config: CrossChainPoolConfig, signer: any): Promise<ChainPoolResult> {
-    console.log("Creating pool on Solana with config:", config);
-    
-    // Solana havuz oluşturma işlemlerini gerçekleştir
-    // İlgili Solana program çağrılarını yap
-    
-    // Şimdilik test için basit bir sonuç döndür
-    return {
-      poolId: "solana_pool_address_placeholder",
-      txIds: ["solana_tx_id_placeholder"],
-      wormholeMessages: []
-    };
+  async function createSolanaPool(config: CrossChainPoolConfig, signer: any): Promise<any> {
+    console.warn("createSolanaPool is a placeholder and needs implementation.");
+    return { poolId: "solana_pool_address_placeholder", txIds: ["solana_tx_placeholder"] };
   }
 
-  async function createSuiPool(config: CrossChainPoolConfig, signer: any): Promise<ChainPoolResult> {
-    console.log("Creating pool on Sui with config:", config);
-    
-    // Sui havuz oluşturma işlemlerini gerçekleştir
-    // İlgili Sui contract çağrılarını yap
-    
-    // Şimdilik test için basit bir sonuç döndür
-    return {
-      poolId: "sui_pool_address_placeholder",
-      txIds: ["sui_tx_id_placeholder"],
-      wormholeMessages: []
-    };
+  async function createSuiPool(config: CrossChainPoolConfig, signer: any): Promise<any> {
+    console.warn("createSuiPool is a placeholder and needs implementation.");
+    return { poolId: "sui_pool_address_placeholder", txIds: ["sui_tx_placeholder"] };
   }
 
   async function linkPools(
-    poolA: string,
-    poolB: string,
+    poolAResult: any, // ChainPoolResult tipine benzer olmalı
+    poolBResult: any, // ChainPoolResult tipine benzer olmalı
     config: CrossChainPoolConfig,
-    signers: { [K in SupportedChain]?: any }
+    signers: { [K in SupportedChain]?: any },
+    wormhole: Wormhole<Network> // Wormhole instance'ını al
   ): Promise<PoolCreationReceipt> {
-    const wh = new Wormhole(CURRENT_NETWORK, [SolanaPlatform, SuiPlatform]);
+    const allTxIds: string[] = [...poolAResult.txIds, ...poolBResult.txIds];
+    const allMessages: WormholeMessageId[] = [];
 
-    const chainA = config.chainA as SupportedChain;
-    const chainB = config.chainB as SupportedChain;
-    const chainAContext = wh.getChain(chainA);
-    const chainBContext = wh.getChain(chainB);
+    console.log("Starting pool linking process...");
 
-    const signerA = signers[chainA];
-    const signerB = signers[chainB];
-    if (!signerA || !signerB) {
-      throw new Error("Missing signers for linking pools.");
-    }
+    // Platform ve Context'leri al (Bu hala gerekli olabilir)
+    const platformA = wormhole.getPlatform(config.chainA as SupportedChain);
+    const platformB = wormhole.getPlatform(config.chainB as SupportedChain);
+    const chainContextA = platformA.getChain(config.chainA as SupportedChain); // Tipleri kaldır
+    const chainContextB = platformB.getChain(config.chainB as SupportedChain);
 
+    let linkResultA: LinkPoolResult | null = null;
+    let linkResultB: LinkPoolResult | null = null;
+
+    // Link A -> B (Doğrudan fonksiyon çağrısı)
     try {
-       // Check if linkPools method exists using type assertion/check
-       if (typeof (chainAContext as any).linkPools !== 'function') {
-           throw new Error(`linkPools method not implemented for chain ${chainA}`);
-       }
-       if (typeof (chainBContext as any).linkPools !== 'function') {
-           throw new Error(`linkPools method not implemented for chain ${chainB}`);
-       }
+        console.log(`Attempting to link ${config.chainA} -> ${config.chainB}`);
+        const chainA = config.chainA as SupportedChain; // Türü belirginleştir
+        const chainB = config.chainB as SupportedChain;
+        const signerA = signers[chainA]; // Doğru anahtarı kullan
+        const signerB = signers[chainB];
 
-      // Call using 'any' due to simplified augmentation
-      const [tx1Result, tx2Result] = await Promise.all([
-        (chainAContext as any).linkPools(poolA, poolB, chainB, signerA),
-        (chainBContext as any).linkPools(poolB, poolA, chainA, signerB)
-      ]);
+        if (!signerA) throw new Error(`Signer for ${chainA} is missing.`);
+        if (!signerB) throw new Error(`Signer for ${chainB} is missing.`);
 
-      // Assuming txNResult has { txid: string, messages: SDKMessageId[] }
-      const combinedTxIds = [tx1Result.txid, tx2Result.txid];
-      const combinedMessages = [
-        // Explicitly type 'msg' in map
-        ...tx1Result.messages.map((msg: SDKMessageId) => ({ chain: msg.chain, emitter: msg.emitter.toString(), sequence: msg.sequence })),
-        // Explicitly type 'msg' in map
-        ...tx2Result.messages.map((msg: SDKMessageId) => ({ chain: msg.chain, emitter: msg.emitter.toString(), sequence: msg.sequence }))
-      ];
-
-      // Optional Wormholescan Parsing
-      let parsedMessages: WormholeMessageId[] = [];
-      try {
-         console.log("Attempting to parse messages from Wormholescan for linking txs...");
-         // Make sure txids are strings before passing
-         const parsed1 = await parseWormholeMessages(String(tx1Result.txid));
-         const parsed2 = await parseWormholeMessages(String(tx2Result.txid));
-         parsedMessages = [...parsed1, ...parsed2];
-         console.log("Parsed messages from Wormholescan:", parsedMessages);
-      } catch (parseError) {
-         console.warn(`Failed to parse messages from Wormholescan for link txs: ${combinedTxIds.join(', ')}`, parseError);
-      }
-
-      return {
-        poolId: `link-${poolA}-${poolB}`,
-        chain: config.chainA,
-        txIds: combinedTxIds,
-        wormholeMessages: combinedMessages // Defaulting to SDK messages
-      };
-    } catch(error) {
-        console.error(`Failed to link pools ${poolA} and ${poolB}:`, error);
-        throw error;
+        if (chainA === 'Solana') {
+            linkResultA = await solanaLinkPoolsPlaceholder(
+                chainContextA as ChainContext<Network, "Solana">, // Cast to specific type
+                poolAResult.poolId,
+                poolBResult.poolId,
+                chainB, // Chain türü zaten doğru
+                signerA // Signer'ı doğrudan geç
+            );
+        } else if (chainA === 'Sui') {
+            linkResultA = await suiLinkPoolsPlaceholder(
+                chainContextA as ChainContext<Network, "Sui">, // Cast to specific type
+                poolAResult.poolId,
+                poolBResult.poolId,
+                chainB,
+                signerA
+            );
+        } else {
+            console.warn(`Linking from ${chainA} is not implemented (using placeholder).`);
+            // Desteklenmeyen zincir için de yer tutucu sonuç döndür
+            linkResultA = { txIds: [`${chainA}_link_placeholder_${Date.now()}`], wormholeMessages: [] };
+            // throw new Error(`linkPools function not found for chain ${config.chainA}`);
+        }
+        if (linkResultA) {
+            allTxIds.push(...linkResultA.txIds);
+            allMessages.push(...linkResultA.wormholeMessages);
+            console.log(`Linking ${chainA} -> ${chainB} completed (Placeholder Tx: ${linkResultA.txIds.join(', ')})`);
+        }
+    } catch (error) {
+        console.error(`Error linking ${config.chainA} -> ${config.chainB}:`, error);
+        throw new Error(`Failed to link ${config.chainA} to ${config.chainB}: ${error instanceof Error ? error.message : String(error)}`);
     }
+
+    // Link B -> A (Doğrudan fonksiyon çağrısı)
+    try {
+        console.log(`Attempting to link ${config.chainB} -> ${config.chainA}`);
+        const chainA = config.chainA as SupportedChain;
+        const chainB = config.chainB as SupportedChain;
+        const signerA = signers[chainA];
+        const signerB = signers[chainB];
+
+        if (!signerB) throw new Error(`Signer for ${chainB} is missing.`); // Redundant check removed
+
+        if (chainB === 'Solana') {
+            linkResultB = await solanaLinkPoolsPlaceholder(
+                chainContextB as ChainContext<Network, "Solana">,
+                poolBResult.poolId,
+                poolAResult.poolId,
+                chainA,
+                signerB
+            );
+        } else if (chainB === 'Sui') {
+            linkResultB = await suiLinkPoolsPlaceholder(
+                chainContextB as ChainContext<Network, "Sui">,
+                poolBResult.poolId,
+                poolAResult.poolId,
+                chainA,
+                signerB
+            );
+        } else {
+            console.warn(`Linking from ${chainB} is not implemented (using placeholder).`);
+             // Desteklenmeyen zincir için de yer tutucu sonuç döndür
+            linkResultB = { txIds: [`${chainB}_link_placeholder_${Date.now()}`], wormholeMessages: [] };
+            // throw new Error(`linkPools function not found for chain ${config.chainB}`);
+        }
+        if (linkResultB) {
+            allTxIds.push(...linkResultB.txIds);
+            allMessages.push(...linkResultB.wormholeMessages);
+            console.log(`Linking ${chainB} -> ${chainA} completed (Placeholder Tx: ${linkResultB.txIds.join(', ')})`);
+        }
+    } catch (error) {
+        console.error(`Error linking ${config.chainB} -> ${config.chainA}:`, error);
+        throw new Error(`Failed to link ${config.chainB} to ${config.chainA}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    // Assume composite pool ID is combination or one of the native IDs for now
+    const compositePoolId = `${config.chainA}:${poolAResult.poolId}|${config.chainB}:${poolBResult.poolId}`;
+
+    console.log("Pool linking process finished.");
+
+    return {
+      poolId: compositePoolId,
+      txIds: allTxIds,
+      wormholeMessages: allMessages,
+    };
   }
 
   // Helper function to get chain name from ID using chainIdToChain utility

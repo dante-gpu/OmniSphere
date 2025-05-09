@@ -1,13 +1,13 @@
 import {
   ChainId,
-  chainToChainId,
+  // chainToChainId, // Removed
   CHAIN_ID_SUI,
   CHAIN_ID_SOLANA,
   getSignedVAAWithRetry,
   uint8ArrayToHex,
   // parseVaa will be dynamically imported
 } from '@certusone/wormhole-sdk';
-import { Buffer } from 'buffer'; // Ensure Buffer is available
+import { Chain, toChainId as newToChainId, assertChainId } from '@wormhole-foundation/sdk-base'; // Renamed to avoid conflict if ChainId is also from here
 
 /**
  * Converts a chain identifier (name or numeric ID) to the SDK's ChainId type.
@@ -15,35 +15,25 @@ import { Buffer } from 'buffer'; // Ensure Buffer is available
  */
 export function getChainIdFromIdentifier(chainIdentifier: string | number): ChainId {
   if (typeof chainIdentifier === 'number') {
-    // Check if the number is a valid ChainId value (e.g., 1 for Solana, 21 for Sui)
-    const isValidChainIdNumber = Object.values(chainToChainId as Record<string, number>).includes(chainIdentifier);
-    if (isValidChainIdNumber) {
-      return chainIdentifier as ChainId;
-    }
-  } else if (typeof chainIdentifier === 'string') {
-    // Try parsing as a number first
-    const numericChainId = parseInt(chainIdentifier);
-    if (!isNaN(numericChainId)) {
-      const isValidNumericString = Object.values(chainToChainId as Record<string, number>).includes(numericChainId);
-      if (isValidNumericString) {
-        return numericChainId as ChainId;
-      }
-    }
-    // Try matching by name (case-insensitive for common names like "Solana", "Sui")
-    // The keys in chainToChainId are like "Solana", "Sui", "Ethereum"
-    const foundChainName = Object.keys(chainToChainId).find(
-      (key) => key.toLowerCase() === chainIdentifier.toLowerCase()
-    );
-    if (foundChainName) {
-      return chainToChainId[foundChainName as keyof typeof chainToChainId];
+    // Assume it's already a ChainId and assert its validity
+    assertChainId(chainIdentifier as ChainId);
+    return chainIdentifier as ChainId;
+  }
+  if (typeof chainIdentifier === 'string') {
+    // Use toChainId from @wormhole-foundation/sdk-base
+    try {
+      // Cast to `Chain` type which is expected by newToChainId
+      // Also cast the result to the @certusone/wormhole-sdk ChainId type
+      return newToChainId(chainIdentifier as Chain) as ChainId;
+    } catch (e) {
+      // Fallback for common lowercase names if newToChainId is strict or input is not exact
+      const lowerId = chainIdentifier.toLowerCase();
+      if (lowerId === "sui") return CHAIN_ID_SUI;
+      if (lowerId === "solana") return CHAIN_ID_SOLANA;
+      throw new Error(`Unknown or unsupported chain string: ${chainIdentifier}. Original error: ${e}`);
     }
   }
-  // Fallback for specific known ChainId constants if not in chainToChainId mapping by name
-  // This handles cases like "sui" vs Sui's actual ChainId constant if map is incomplete.
-  if (String(chainIdentifier).toLowerCase() === "sui" || chainIdentifier === CHAIN_ID_SUI) return CHAIN_ID_SUI;
-  if (String(chainIdentifier).toLowerCase() === "solana" || chainIdentifier === CHAIN_ID_SOLANA) return CHAIN_ID_SOLANA;
-
-  throw new Error(`Unsupported or unknown chain identifier: ${chainIdentifier}. Could not map to a valid ChainId.`);
+  throw new Error(`Invalid chain identifier type: ${typeof chainIdentifier}`);
 }
 
 /**
